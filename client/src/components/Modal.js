@@ -12,9 +12,6 @@ const Modal = ({ isOpen, onClose }) => {
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
         <div className="modal-body">
-          <p>
-            Los datos mostrados en esta aplicación provienen de la página web de la Asociación de Administradoras de Fondos de Pensiones (AAFM.cl).
-          </p>
           <h3>Fuente de datos:</h3>
           <p>
             <a href="https://estadisticas2.aafm.cl/DailyStadistics" target="_blank" rel="noopener noreferrer">
@@ -22,7 +19,7 @@ const Modal = ({ isOpen, onClose }) => {
             </a>
           </p>
           <h3>Los filtros ocupados para obtener esta tabla son:</h3>
-          <h4>Categorias AFM:</h4>
+          <p><strong>Categorias AFM:</strong>
           <ul>
               <li>Accionario Nacional</li>
               <li>Accionario Nacional Large Cap</li>
@@ -30,10 +27,11 @@ const Modal = ({ isOpen, onClose }) => {
               <li>Accionario Nacional Small & Mid Cap</li>
               <li>Inversionistas Calificados Accionario Nacional</li>
           </ul>
-            <p>Administradora: Todos</p>
-            <p>APV: Todos</p>
-            <p>Tipo de Inversión: Nacional</p>
-            <p>Checkboxes marcados: Flujo Aporte y Flujo Rescate.</p>
+          </p>
+          <p><strong>Administradora:</strong> Todos</p>
+          <p><strong>APV:</strong> Todos</p>
+          <p><strong>Tipo de Inversión:</strong> Nacional</p>
+          <p><strong>Checkboxes marcados:</strong> Flujo Aporte y Flujo Rescate.</p>
           <p>
             Los datos se actualizan diariamente según la información publicada por la AAFM.
           </p>

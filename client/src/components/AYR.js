@@ -322,22 +322,6 @@ const AYR= () => {
               </tbody>
             </table>
           </div>
-          <div className="filters-info">
-            <p>Información obtenida de Asociación de FFMM: https://estadisticas2.aafm.cl/DailyStadistics</p>
-            <p>Los filtros ocupados para obtener la tabla son:</p>
-            <p>Categorías AFM:</p>
-            <ul>
-              <li>Accionario Nacional</li>
-              <li>Accionario Nacional Large Cap</li>
-              <li>Accionario Nacional Otros</li>
-              <li>Accionario Nacional Small & Mid Cap</li>
-              <li>Inversionistas Calificados Accionario Nacional</li>
-            </ul>
-            <p>Administradora: Todos</p>
-            <p>APV: Todos</p>
-            <p>Tipo de Inversión: Nacional</p>
-            <p>Checkboxes marcados: Flujo Aporte y Flujo Rescate.</p>
-          </div>
         </div>
         <div className="charts-container">
           <AportesRescatesNetoChart data={currentRows} darkMode={darkMode}  />

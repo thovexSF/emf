@@ -14,7 +14,7 @@ const Navbar = () => {
           </div>
           <div className="navbar-title" onClick={() => setIsModalOpen(true)} style={{ cursor: 'pointer' }}>
             <h1>
-              Aportes y Rescates</h1>
+              APPS  | FFMM Aportes y Rescates</h1>
           </div>
         </div>
       </nav>
