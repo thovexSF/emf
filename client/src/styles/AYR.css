@@ -1,0 +1,318 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+.apps-main{
+  font-family: 'Inter', sans-serif;
+}
+.app-container {
+    margin-left: 60px;
+    margin-right: 40px;
+    background-color: white;
+    min-height: 100vh;
+    padding-top: 70px; /* Ajuste para el navbar fijo */
+    font-family: 'Inter', sans-serif;
+}
+
+.update-buttons {
+    margin-top: 80px;
+    display:flex;
+
+}   
+.update-button {
+    padding: 8px;
+    margin-right:20px;
+    background-color: #f26439;
+    color: #ffffff;
+    border: 2px solid #f26439;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 4px;
+    min-width: 150px;
+    transition: all 0.3s ease;
+}
+
+.update-button:hover:not(.active) {
+    background-color: #ffffff;
+    color: #f26439;
+}
+
+.update-button:disabled {
+    background-color: #f8a38a;
+    cursor: not-allowed;
+}
+
+.datepicker {
+    padding: 10px;
+    font-size: 14px;
+    border-radius: 4px;
+    text-align: center;
+    width:100px;
+    border: 2px solid #f26439;
+}
+.main-content {
+    display: flex;
+    justify-content: space-between;
+}
+
+.table-container {
+    display: flex;
+    flex-direction: column;
+    flex: 2;
+}
+
+.pagination-container {
+    display: flex;
+    margin-top:50px;
+ 
+}
+.pagination {
+    display: flex;
+    justify-content: left;
+}
+
+.pagination button {
+    margin: 0 5px;
+    padding: 8px 16px;
+    background-color: #ffffff;
+    color: #f26439;
+    border: 2px solid #f26439;
+    cursor: pointer;
+    border-radius: 4px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.pagination button.active {
+    background-color: #f26439;
+    color: #ffffff;
+}
+.download-button {
+    background-color: #ffffff;
+    color: #f26439;
+    border: none;
+    cursor: pointer;
+    font-size: 17px;
+    margin-left:5px;
+    margin-bottom:0px;
+    transition: all 0.3s ease;
+}
+.mode-label{
+  color:black;
+}
+
+.pagination button:hover:not(.active) {
+    background-color: #f26439;
+    color: #ffffff;
+}
+
+.download-button:hover {
+    color: #d44b24;
+}
+
+.filters-info {
+    flex: 2;
+    margin: 20px 20px;
+    padding: 10px;
+    border: 2px solid rgb(0, 0, 0);
+    border-radius: 4px;
+    color:rgb(0, 0, 0);
+    align-self: flex-start;
+    width:auto;
+}
+
+.data-table {
+    border-collapse: collapse;
+    margin-top: 20px;
+    table-layout: auto;
+    font-size: 14px; /* Ajustar el tamaño de la letra de la tabla */
+    background-color: white;
+    color: black;
+}
+
+.data-table th,
+.data-table td {
+    border-color: #ddd;
+    border: 1px solid gold;
+    padding: 8px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.data-table th {
+    padding-top: 12px;
+    padding-bottom: 12px;
+    background-color: #f26439;
+    color: #ffffff;
+    cursor: pointer;
+}
+
+.data-table tr:hover {
+    background-color: #fff5f2;
+    color: #f26439;
+}
+
+/* Estilos para el interruptor */
+.switch-container {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 20px;
+    margin-right: 10px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #f26439;
+    transition: .4s;
+    border-radius: 20px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    bottom: 3px;
+    background-color: rgb(16, 12, 12);
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #f26439;
+}
+
+input:checked + .slider:before {
+    transform: translateX(20px);
+}
+
+.charts-container {
+  margin: 50px 0 0px 0;
+  width: 80%;
+  justify-content: center
+}
+
+.charts-container > div {
+  margin-top: 40px;
+  margin-bottom: 40px;
+}
+
+/***********************************MODO CLARO****************************************/
+/* Modo oscuro */
+
+body.dark-mode .app-container {
+  background-color: rgb(0, 0, 0);
+  color: rgb(255, 255, 255);
+}
+
+body.dark-mode{
+  background-color: black;
+}
+body.dark-mode .apps-header {
+  background-color: rgb(0, 0, 0);
+  border-bottom: 2px solid #f26439;
+}
+body.dark-mode .apps-client-title {
+  color: #f26439;
+} 
+body.dark-mode .apps-logo-container {
+  border: 3px solid #f26439;
+}
+body.dark-mode .apps-logo-text {
+  color: #f26439;
+}
+body.dark-mode .mode-label{
+  color: #f26439;
+}
+
+body.dark-mode .data-table {
+  background-color: rgb(0, 0, 0);
+  color: white;
+}
+
+body.dark-mode .update-button{
+  background-color: #f26439;
+  color: #ffffff;
+  border: 2px solid #f26439;
+}
+
+body.dark-mode .update-button:hover {
+  background-color: #ffffff;
+  color: #f26439;
+}
+
+body.dark-mode .datepicker {
+  background-color: #1a1a1a;
+  color: #ffffff;
+  border: 2px solid #f26439;
+}
+
+body.dark-mode .pagination button {
+  background-color: #1a1a1a;
+  color: #f26439;
+  border: 2px solid #f26439;
+}
+
+body.dark-mode .pagination button.active {
+  background-color: #f26439;
+  color: #ffffff;
+}
+body.dark-mode .download-button {
+  background-color: #1a1a1a;
+  color: #f26439;
+}
+
+body.dark-mode .download-button:hover {
+  color: #ffffff;
+}
+body.dark-mode .switch .slider {
+  background-color: #f26439;
+}
+
+body.dark-mode .switch .slider:before {
+  background-color: #ffffff;
+}
+
+body.dark-mode .filters-info {
+  background-color: #1a1a1a;
+  color: #f26439;
+  border-color: #f26439;
+}
+body.dark-mode .data-table th,
+body.dark-mode .data-table td {
+  border-color: #f26439;
+}
+
+body.dark-mode .data-table th {
+  background-color: #f26439;
+  color: #ffffff;
+}
+
+body.dark-mode .data-table tr:hover {
+  background-color: #2a2a2a;
+  color: #f26439;
+}
+
+body.dark-mode .charts-container {
+  background-color: rgb(0, 0, 0);
+  color: #f26439;
+}
+

@@ -1,0 +1,37 @@
+{
+  "name": "thovex-factory",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": ".",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "install-all": "npm install && npm install --prefix client && npm install --prefix server",
+    "client-install": "npm install --prefix client",
+    "client-build": "npm run build --prefix client",
+    "server-install": "npm install --prefix server",
+    "server-start": "node server/server.js",
+    "build": "NPM_CONFIG_PRODUCTION=false npm install && react-scripts build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^6.5.2",
+    "@fortawesome/free-brands-svg-icons": "^6.5.2",
+    "@fortawesome/free-solid-svg-icons": "^6.5.2",
+    "@fortawesome/react-fontawesome": "^0.2.2",
+    "axios": "^1.7.2",
+    "cheerio": "^1.0.0-rc.12",
+    "cors": "^2.8.5",
+    "date-fns": "^3.6.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "font-awesome": "^4.7.0",
+    "node-cron": "^3.0.3",
+    "pg": "^8.12.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-scripts": "5.0.1"
+  }
+}
