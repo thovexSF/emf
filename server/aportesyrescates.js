@@ -5,11 +5,25 @@ const ExcelJS = require('exceljs');
 
 // Configuración de la conexión a PostgreSQL
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false
-    }
+    connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/railway',
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
+
+// Función para verificar la conexión a la base de datos
+const checkDatabaseConnection = async () => {
+    try {
+        const client = await pool.connect();
+        client.release();
+        console.log('Conexión a la base de datos establecida correctamente');
+        return true;
+    } catch (error) {
+        console.error('Error al conectar con la base de datos:', error);
+        return false;
+    }
+};
+
+// Verificar la conexión al iniciar
+checkDatabaseConnection();
 
 // Modificar para llamar a la función de Firebase
 const getDataFromSource = async (fecha) => {

@@ -9,8 +9,9 @@ import { faFileExcel } from '@fortawesome/free-solid-svg-icons';
 import { AportesRescatesNetoChart, AcumuladosChart } from './Charts';
 import Navbar from './Navbar';
 
-// const apiUrl = 'https://thovex-web-production.up.railway.app';
-const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+const apiUrl = process.env.NODE_ENV === 'production' 
+    ? '/api' 
+    : process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
 
 const AYR= () => {
     const [data, setData] = useState([]);
@@ -24,7 +25,7 @@ const AYR= () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${apiUrl}/api/fetch-data`);
+            const response = await fetch(`${apiUrl}/fetch-data`);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -46,7 +47,7 @@ const AYR= () => {
     const updateData = async () => {
         setLoading(true);
         try {
-            const response = await fetch(`${apiUrl}/api/updateall`);
+            const response = await fetch(`${apiUrl}/updateall`);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -69,7 +70,7 @@ const AYR= () => {
         setLoading(true);
         try {
             const formattedDate = format(date, 'yyyy-MM-dd');
-            const response = await fetch(`${apiUrl}/api/update/${formattedDate}`);
+            const response = await fetch(`${apiUrl}/update/${formattedDate}`);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -85,7 +86,7 @@ const AYR= () => {
 
     const downloadExcel = async () => {
         try {
-            const response = await fetch(`${apiUrl}/api/download-excel`, {
+            const response = await fetch(`${apiUrl}/download-excel`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
