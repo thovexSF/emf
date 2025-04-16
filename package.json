@@ -11,7 +11,8 @@
     "client-build": "npm run build --prefix client",
     "server-install": "npm install --prefix server",
     "server-start": "node server/server.js",
-    "build": "NPM_CONFIG_PRODUCTION=false npm install && react-scripts build"
+    "build": "NPM_CONFIG_PRODUCTION=false npm install && react-scripts build",
+    "postinstall": "npm run install-all && npm run client-build"
   },
   "keywords": [],
   "author": "",
