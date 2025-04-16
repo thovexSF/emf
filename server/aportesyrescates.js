@@ -5,8 +5,10 @@ const ExcelJS = require('exceljs');
 
 // Configuración de la conexión a PostgreSQL
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/railway',
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
+    }
 });
 
 // Función para verificar la conexión a la base de datos

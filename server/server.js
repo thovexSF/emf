@@ -19,7 +19,7 @@ const limiter = rateLimit({
 // CORS configuration
 const corsOptions = {
     origin: process.env.NODE_ENV === 'production' 
-        ? ['https://tu-dominio-production.up.railway.app']
+        ? [process.env.RAILWAY_PUBLIC_DOMAIN]
         : ['http://localhost:3000'],
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -100,9 +100,12 @@ app.get('/api/download-excel', async (req, res) => {
     }
 });
 
-// Servir archivos estáticos en producción
+// Serve static files in production
 if (process.env.NODE_ENV === 'production') {
+    // Serve static files from the React app
     app.use(express.static(path.join(__dirname, '../client/build')));
+
+    // Handle React routing, return all requests to React app
     app.get('*', (req, res) => {
         res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
     });
@@ -118,7 +121,7 @@ app.use((err, req, res, next) => {
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
     console.log('NODE_ENV:', process.env.NODE_ENV);
-    console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Definida' : 'No definida');
+    console.log('RAILWAY_PUBLIC_DOMAIN:', process.env.RAILWAY_PUBLIC_DOMAIN);
 });
 
 // Programar cron para las 20:17 (8:17 PM) todos los días

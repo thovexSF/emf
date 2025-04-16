@@ -3,7 +3,7 @@ builder = "nixpacks"
 buildCommand = "npm run build"
 
 [deploy]
-startCommand = "npm start"
+startCommand = "NODE_ENV=production npm start"
 healthcheckPath = "/api/fetch-data"
 healthcheckTimeout = 100
 restartPolicyType = "on_failure"
