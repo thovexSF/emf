@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const cron = require('node-cron');
+const rateLimit = require('express-rate-limit');
 const { pool, updateDataAndSave, updateSpecificDate, downloadExcel } = require('./aportesyrescates.js');
 const path = require('path');
 const { addHours, format } = require('date-fns');
@@ -9,9 +10,26 @@ const { addHours, format } = require('date-fns');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Rate limiting
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100 // limit each IP to 100 requests per windowMs
+});
+
+// CORS configuration
+const corsOptions = {
+    origin: process.env.NODE_ENV === 'production' 
+        ? ['https://tu-dominio-production.up.railway.app']
+        : ['http://localhost:3000'],
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+};
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
+app.use(limiter);
 
 // API Routes
 app.get('/api/fetch-data', async (req, res) => {
@@ -47,8 +65,23 @@ app.get('/api/updateall', async (req, res) => {
     }
 });
 
+// Validación de fecha
+const validateDate = (date) => {
+    const regex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!regex.test(date)) {
+        return false;
+    }
+    const d = new Date(date);
+    return d instanceof Date && !isNaN(d) && d < new Date();
+};
+
 app.get('/api/update/:date', async (req, res) => {
     const { date } = req.params;
+    
+    if (!validateDate(date)) {
+        return res.status(400).json({ error: 'Fecha inválida. Debe estar en formato YYYY-MM-DD y ser anterior a hoy.' });
+    }
+
     try {
         await updateSpecificDate(date);
         res.json({ message: `Datos actualizados para la fecha ${date}` });
