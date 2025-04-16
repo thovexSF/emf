@@ -1,18 +1,12 @@
 {
-  "name": "thovex-factory",
+  "name": "emf",
   "version": "1.0.0",
   "description": "",
   "homepage": ".",
   "main": "index.js",
   "scripts": {
     "start": "node server/server.js",
-    "install-all": "npm install && npm install --prefix client && npm install --prefix server",
-    "client-install": "npm install --prefix client",
-    "client-build": "npm run build --prefix client",
-    "server-install": "npm install --prefix server",
-    "server-start": "node server/server.js",
-    "build": "NPM_CONFIG_PRODUCTION=false npm install && react-scripts build",
-    "postinstall": "npm run install-all && npm run client-build"
+    "build": "cd client && npm install && npm run build && cd .. && cd server && npm install"
   },
   "keywords": [],
   "author": "",
