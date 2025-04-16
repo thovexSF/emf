@@ -8,6 +8,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileExcel, faInfoCircle, faClock } from '@fortawesome/free-solid-svg-icons';
 import { AportesRescatesNetoChart, AcumuladosChart } from './Charts';
 import Navbar from './Navbar';
+import Modal from './Modal';
 
 const apiUrl = process.env.NODE_ENV === 'production' 
     ? '/api' 
@@ -22,6 +23,7 @@ const AYR= () => {
     const [showAll, setShowAll] = useState(false);
     const [darkMode, setdarkMode] = useState(true);
     const [lastUpdate, setLastUpdate] = useState(null);
+    const [showModal, setShowModal] = useState(false);
     
     const fetchData = async () => {
         try {
@@ -256,6 +258,12 @@ const AYR= () => {
                 <FontAwesomeIcon icon={faClock} />
                 <span>Última actualización: {lastUpdate ? format(parseISO(lastUpdate), 'dd/MM/yyyy') : 'Cargando...'}</span>
             </div>
+            <button 
+                onClick={() => setShowModal(true)}
+                className="info-button"
+            >
+                <FontAwesomeIcon icon={faInfoCircle} size="2x" />
+            </button>
             <div className="switch-container">
             <label className="switch">
                 <input type="checkbox" checked={!darkMode} onChange={toggledarkMode} />
@@ -337,6 +345,7 @@ const AYR= () => {
           <div style={{ height: '50px' }}></div>
           <AcumuladosChart data={currentRows} darkMode={darkMode}  />
         </div>
+        <Modal isOpen={showModal} onClose={() => setShowModal(false)} />
       </div>
     );       
 };
