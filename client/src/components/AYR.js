@@ -5,7 +5,7 @@ import { es } from 'date-fns/locale';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFileExcel } from '@fortawesome/free-solid-svg-icons';
+import { faFileExcel, faInfoCircle, faClock } from '@fortawesome/free-solid-svg-icons';
 import { AportesRescatesNetoChart, AcumuladosChart } from './Charts';
 import Navbar from './Navbar';
 
@@ -16,11 +16,12 @@ const apiUrl = process.env.NODE_ENV === 'production'
 const AYR= () => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [sortConfig, setSortConfig] = useState({ key: 'fecha', direction: 'asc' });
+    const [sortConfig, setSortConfig] = useState({ key: 'fecha', direction: 'desc' });
     const [dateToUpdate, setDateToUpdate] = useState(subDays(new Date(), 2));
     const [currentPage, setCurrentPage] = useState(0);
     const [showAll, setShowAll] = useState(false);
     const [darkMode, setdarkMode] = useState(true);
+    const [lastUpdate, setLastUpdate] = useState(null);
     
     const fetchData = async () => {
         try {
@@ -32,6 +33,10 @@ const AYR= () => {
             const result = await response.json();
             if (Array.isArray(result)) {
                 setData(result);
+                if (result.length > 0) {
+                    const lastDate = result[result.length - 1].fecha;
+                    setLastUpdate(lastDate);
+                }
             } else {
                 console.error('Fetched data is not an array:', result);
                 throw new Error('Invalid data format received from server');
@@ -247,6 +252,10 @@ const AYR= () => {
               dateFormat="dd-MM-YYYY"
               className="datepicker"
             />
+            <div className="last-update">
+                <FontAwesomeIcon icon={faClock} />
+                <span>Última actualización: {lastUpdate ? format(parseISO(lastUpdate), 'dd/MM/yyyy') : 'Cargando...'}</span>
+            </div>
             <div className="switch-container">
             <label className="switch">
                 <input type="checkbox" checked={!darkMode} onChange={toggledarkMode} />
