@@ -38,6 +38,20 @@ const AYR= () => {
                 if (result.length > 0) {
                     const lastDate = result[result.length - 1].fecha;
                     setLastUpdate(lastDate);
+                    
+                    const groupedData = groupData(result);
+                    const currentYear = new Date().getFullYear();
+                    const currentMonth = new Date().getMonth() + 1;
+                    const currentMonthYear = `${currentYear}-${currentMonth.toString().padStart(2, '0')}`;
+                    
+                    const latestTabIndex = groupedData.findIndex(group => 
+                        group.key === currentMonthYear || 
+                        (currentYear === 2024 && group.key === '2024')
+                    );
+                    
+                    if (latestTabIndex !== -1) {
+                        setCurrentPage(latestTabIndex);
+                    }
                 }
             } else {
                 console.error('Fetched data is not an array:', result);
