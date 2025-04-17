@@ -13,8 +13,13 @@ import Modal from './Modal';
 import NavTabs from './NavTabs';
 
 const apiUrl = process.env.NODE_ENV === 'production' 
-    ? process.env.REACT_APP_API_URL || '/api'
+    ? process.env.REACT_APP_API_URL || window.location.origin + '/api'
     : process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+
+// Añadimos un console.log para debug en desarrollo
+if (process.env.NODE_ENV !== 'production') {
+    console.log('API URL:', apiUrl);
+}
 
 const AYR = () => {
     const [data, setData] = useState([]);
