@@ -8,10 +8,13 @@ const Modal = ({ isOpen, onClose }) => {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Información sobre los datos</h2>
+          <h2>Aportes y Rescates FFMM</h2>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
         <div className="modal-body">
+        <p>
+            Esta app muestra los datos de Aportes y Rescates de los Fondos mutuos nacionales y el acumulado de Aportes-Rescates dia a dia.
+          </p>
           <h3>Fuente de datos:</h3>
           <p>
             <a href="https://estadisticas2.aafm.cl/DailyStadistics" target="_blank" rel="noopener noreferrer">

@@ -1,4 +1,12 @@
-require('dotenv').config();
+// Load environment variables first
+const dotenv = require('dotenv');
+const result = dotenv.config({ path: __dirname + '/.env' });
+
+if (result.error) {
+    console.error('Error loading .env file:', result.error);
+    process.exit(1);
+}
+
 const express = require('express');
 const cors = require('cors');
 const cron = require('node-cron');
@@ -7,8 +15,22 @@ const { pool, updateDataAndSave, updateSpecificDate, downloadExcel } = require('
 const path = require('path');
 const { addHours, format } = require('date-fns');
 
+// Debug environment variables
+console.log('Environment Variables:');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Present' : 'Missing');
+console.log('RAILWAY_PUBLIC_DOMAIN:', process.env.RAILWAY_PUBLIC_DOMAIN);
+
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// CORS configuration - Aplicar CORS antes que cualquier otro middleware
+app.use(cors({
+    origin: 'http://localhost:3001',
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+}));
 
 // Rate limiting
 const limiter = rateLimit({
@@ -16,18 +38,7 @@ const limiter = rateLimit({
     max: 100 // limit each IP to 100 requests per windowMs
 });
 
-// CORS configuration
-const corsOptions = {
-    origin: process.env.NODE_ENV === 'production' 
-        ? [process.env.RAILWAY_PUBLIC_DOMAIN]
-        : ['http://localhost:3000'],
-    methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
-};
-
 // Middleware
-app.use(cors(corsOptions));
 app.use(express.json());
 app.use(limiter);
 

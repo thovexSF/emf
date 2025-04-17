@@ -6,7 +6,7 @@ import { format, parseISO } from 'date-fns';
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 const AportesRescatesNetoChart = ({ data, darkMode }) => {
-    const color = darkMode ?  '#333':'#eec378';
+    const color = darkMode ?  '#333':'#f26439';
     const gridColor = darkMode ? 'rgba(0, 0, 0, 0.1)':'rgba(255, 255, 255, 0.3)';
     const labels = data.map(d => format(parseISO(d.fecha), 'dd/MM/yyyy'));
     const aportes = data.map(d => d.flujo_aportes);
@@ -89,7 +89,7 @@ const AportesRescatesNetoChart = ({ data, darkMode }) => {
 };
 
 const AcumuladosChart = ({ data, darkMode }) => {
-    const color = darkMode ?  '#333':'#eec378';
+    const color = darkMode ?  '#333':'#f26439';
     const gridColor = darkMode ? 'rgba(0, 0, 0, 0.1)':'rgba(255, 255, 255, 0.3)';
     const labels = data.map(d => format(parseISO(d.fecha), 'dd/MM/yyyy'));
     const acumuladoAportes = data.map(d => d.acumulado_aportes);

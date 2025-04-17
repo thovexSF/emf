@@ -8,7 +8,7 @@
     margin-right: 40px;
     background-color: white;
     min-height: 100vh;
-    padding-top: 70px; /* Ajuste para el navbar fijo */
+    padding-top: 100px; /* Ajuste para el navbar fijo (70px) + NavTabs (50px) */
     font-family: 'Inter', sans-serif;
 }
 
@@ -58,17 +58,24 @@
     display: flex;
     flex-direction: column;
     flex: 2;
+    max-height: calc(100vh - 300px);
+    overflow-y: auto;
+    position: relative;
+    margin-top: 15px;
+    width: fit-content;
+    max-width: 100%;
 }
 
 .pagination-container {
     display: flex;
-    margin-top:50px;
- 
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 50px;
+    padding: rem;
+    width: 100%;
 }
-.pagination {
-    display: flex;
-    justify-content: left;
-}
+
+
 
 .pagination button {
     margin: 0 5px;
@@ -87,14 +94,16 @@
     color: #ffffff;
 }
 .download-button {
-    background-color: #ffffff;
-    color: #f26439;
+    background: none;
     border: none;
+    color: #219c4a;
     cursor: pointer;
-    font-size: 17px;
-    margin-left:5px;
-    margin-bottom:0px;
-    transition: all 0.3s ease;
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.3s ease;
+    margin-left: auto; /* Esto asegura que el botón se mantenga a la derecha */
 }
 .mode-label{
   color:black;
@@ -106,7 +115,7 @@
 }
 
 .download-button:hover {
-    color: #d44b24;
+    color: #26e16b;
 }
 
 .filters-info {
@@ -122,20 +131,29 @@
 
 .data-table {
     border-collapse: collapse;
-    margin-top: 20px;
-    table-layout: auto;
-    font-size: 14px; /* Ajustar el tamaño de la letra de la tabla */
+    margin-top: 0;
+    font-size: 14px;
     background-color: white;
     color: black;
+    width: fit-content;
 }
 
 .data-table th,
 .data-table td {
     border-color: #ddd;
-    border: 1px solid gold;
+    border: 1px solid #f7b29c;
     padding: 8px;
     text-align: center;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 50px;
+}
+
+.data-table .col-monto {
+    width: 150px;
+    min-width: 150px;
+    max-width: 150px;
 }
 
 .data-table th {
@@ -144,6 +162,9 @@
     background-color: #f26439;
     color: #ffffff;
     cursor: pointer;
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }
 
 .data-table tr:hover {
@@ -260,7 +281,7 @@ body.dark-mode .update-button:hover {
 }
 
 body.dark-mode .datepicker {
-  background-color: #1a1a1a;
+  background-color: black;
   color: #ffffff;
   border: 2px solid #f26439;
 }
@@ -276,12 +297,12 @@ body.dark-mode .pagination button.active {
   color: #ffffff;
 }
 body.dark-mode .download-button {
-  background-color: #1a1a1a;
-  color: #f26439;
+ 
+  color: #219c4a;
 }
 
 body.dark-mode .download-button:hover {
-  color: #ffffff;
+  color: #26e16b;;
 }
 body.dark-mode .switch .slider {
   background-color: #f26439;
@@ -292,7 +313,7 @@ body.dark-mode .switch .slider:before {
 }
 
 body.dark-mode .filters-info {
-  background-color: #1a1a1a;
+  background-color: black;
   color: #f26439;
   border-color: #f26439;
 }
@@ -304,6 +325,9 @@ body.dark-mode .data-table td {
 body.dark-mode .data-table th {
   background-color: #f26439;
   color: #ffffff;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 body.dark-mode .data-table tr:hover {
@@ -355,5 +379,65 @@ body.dark-mode .info-button {
 
 body.dark-mode .info-button:hover {
     color: #ffffff;
+}
+
+.logo-container {
+    display: flex;
+    justify-content: center;
+    padding: 2rem 0;
+}
+
+.logo {
+    max-width: 200px;
+    height: auto;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.download-button, .info-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.3s ease;
+}
+
+.download-button {
+    color: #219c4a;
+}
+
+.download-button:hover {
+    color: #26e16b;
+}
+
+.info-button {
+    color: #f26439;
+}
+
+.info-button:hover {
+    color: #d9531e;
+}
+
+body.dark-mode .download-button {
+    color: #219c4a;
+}
+
+body.dark-mode .download-button:hover {
+    color: #26e16b;
+}
+
+body.dark-mode .info-button {
+    color: #f26439;
+}
+
+body.dark-mode .info-button:hover {
+    color: #ff8c6b;
 }
 

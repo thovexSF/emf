@@ -1,20 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import '../styles/AYR.css';
+import '../styles/NavTabs.css';
 import { format, parseISO, getDay, subDays, isWeekend, addHours } from 'date-fns';
 import { es } from 'date-fns/locale';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFileExcel, faInfoCircle, faClock } from '@fortawesome/free-solid-svg-icons';
+import { faFileExcel, faClock } from '@fortawesome/free-solid-svg-icons';
 import { AportesRescatesNetoChart, AcumuladosChart } from './Charts';
 import Navbar from './Navbar';
 import Modal from './Modal';
+import NavTabs from './NavTabs';
 
 const apiUrl = process.env.NODE_ENV === 'production' 
     ? '/api' 
     : process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
 
-const AYR= () => {
+const AYR = () => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [sortConfig, setSortConfig] = useState({ key: 'fecha', direction: 'desc' });
@@ -24,7 +26,8 @@ const AYR= () => {
     const [darkMode, setdarkMode] = useState(true);
     const [lastUpdate, setLastUpdate] = useState(null);
     const [showModal, setShowModal] = useState(false);
-    
+    const [activeTab, setActiveTab] = useState('ayr');
+
     const fetchData = async () => {
         try {
             setLoading(true);
@@ -38,20 +41,6 @@ const AYR= () => {
                 if (result.length > 0) {
                     const lastDate = result[result.length - 1].fecha;
                     setLastUpdate(lastDate);
-                    
-                    const groupedData = groupData(result);
-                    const currentYear = new Date().getFullYear();
-                    const currentMonth = new Date().getMonth() + 1;
-                    const currentMonthYear = `${currentYear}-${currentMonth.toString().padStart(2, '0')}`;
-                    
-                    const latestTabIndex = groupedData.findIndex(group => 
-                        group.key === currentMonthYear || 
-                        (currentYear === 2024 && group.key === '2024')
-                    );
-                    
-                    if (latestTabIndex !== -1) {
-                        setCurrentPage(latestTabIndex);
-                    }
                 }
             } else {
                 console.error('Fetched data is not an array:', result);
@@ -73,6 +62,7 @@ const AYR= () => {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             await fetchData();
+            setLastUpdate(new Date().toISOString());
             alert('Datos actualizados exitosamente.');
         } catch (error) {
             console.error('Error updating data:', error);
@@ -96,6 +86,7 @@ const AYR= () => {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             await fetchData();
+            setLastUpdate(new Date().toISOString());
             alert(`Datos para ${formattedDate} actualizados exitosamente.`);
         } catch (error) {
             console.error(`Error updating data for ${date}:`, error);
@@ -130,28 +121,6 @@ const AYR= () => {
         }
     };
 
-    useEffect(() => {
-        fetchData();
-        const intervalId = setInterval(fetchData, 24 * 60 * 60 * 1000); // 24 horas
-        return () => clearInterval(intervalId);
-    }, []);
-
-    const formatNumber = (value) => {
-        const numberValue = typeof value === 'string' ? parseFloat(value.replace(',', '.')) : value;
-        if (!isNaN(numberValue)) {
-            return numberValue.toLocaleString('de-DE', {});
-        }
-        return value;
-    };
-
-    const requestSort = (key) => {
-        let direction = 'asc';
-        if (sortConfig.key === key && sortConfig.direction === 'asc') {
-            direction = 'desc';
-        }
-        setSortConfig({ key, direction });
-    };
-
     const sortedData = React.useMemo(() => {
         let sortableItems = [...data];
         sortableItems.sort((a, b) => {
@@ -169,40 +138,61 @@ const AYR= () => {
 
     const groupedData = React.useMemo(() => {
         const groups = {};
+        const yearGroups = {};
+        
+        // Primero agrupamos por mes
         sortedData.forEach(item => {
             if (item && item.fecha) {
                 const date = addHours(parseISO(item.fecha), 12);
                 const year = format(date, 'yyyy');
                 const monthYear = format(date, 'yyyy-MM');
                 
-                // Para 2024, agrupar todo el año
-                if (year === '2024') {
-                    if (!groups['2024']) {
-                        groups['2024'] = [];
-                    }
-                    groups['2024'].push(item);
-                } 
-                // Para 2025, agrupar por meses
-                else if (year === '2025') {
-                    if (!groups[monthYear]) {
-                        groups[monthYear] = [];
-                    }
-                    groups[monthYear].push(item);
+                if (!groups[monthYear]) {
+                    groups[monthYear] = [];
                 }
+                groups[monthYear].push(item);
+
+                // También agrupamos por año para verificar si está completo
+                if (!yearGroups[year]) {
+                    yearGroups[year] = [];
+                }
+                yearGroups[year].push(item);
             }
         });
 
-        // Ordenar los grupos: 2024 primero, luego los meses de 2025 en orden
-        const sortedGroups = {};
-        if (groups['2024']) {
-            sortedGroups['2024'] = groups['2024'];
-        }
+        // Verificamos qué años están completos (tienen todos los meses)
+        const completeYears = {};
+        Object.keys(yearGroups).forEach(year => {
+            const months = new Set(yearGroups[year].map(item => 
+                format(addHours(parseISO(item.fecha), 12), 'MM')
+            ));
+            if (months.size === 12) {
+                completeYears[year] = yearGroups[year];
+            }
+        });
+
+        // Combinamos los grupos mensuales y anuales
+        const finalGroups = {};
         
-        Object.keys(groups)
-            .filter(key => key !== '2024')
+        // Agregamos los años completos
+        Object.keys(completeYears).forEach(year => {
+            finalGroups[year] = completeYears[year];
+        });
+
+        // Agregamos los meses de años incompletos
+        Object.keys(groups).forEach(monthYear => {
+            const year = monthYear.split('-')[0];
+            if (!completeYears[year]) {
+                finalGroups[monthYear] = groups[monthYear];
+            }
+        });
+
+        // Ordenamos los grupos
+        const sortedGroups = {};
+        Object.keys(finalGroups)
             .sort()
             .forEach(key => {
-                sortedGroups[key] = groups[key];
+                sortedGroups[key] = finalGroups[key];
             });
 
         return Object.keys(sortedGroups).map(key => ({
@@ -212,6 +202,36 @@ const AYR= () => {
     }, [sortedData]);
 
     const currentRows = showAll ? sortedData : (groupedData[currentPage]?.data || []);
+
+    useEffect(() => {
+        fetchData();
+        const intervalId = setInterval(fetchData, 24 * 60 * 60 * 1000); // 24 horas
+        return () => clearInterval(intervalId);
+    }, []);
+
+    // Efecto para establecer la última pestaña cuando se cargan los datos
+    useEffect(() => {
+        if (groupedData.length > 0) {
+            setCurrentPage(groupedData.length - 1);
+            setShowAll(false);
+        }
+    }, [groupedData]);
+
+    const formatNumber = (value) => {
+        const numberValue = typeof value === 'string' ? parseFloat(value.replace(',', '.')) : value;
+        if (!isNaN(numberValue)) {
+            return numberValue.toLocaleString('de-DE', {});
+        }
+        return value;
+    };
+
+    const requestSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
 
     const handlePageChange = (pageNumber) => {
         setCurrentPage(pageNumber);
@@ -223,10 +243,12 @@ const AYR= () => {
     };
 
     const getButtonLabel = (group) => {
-        if (group.key === '2024') {
-            return '2024';
-        }
         const date = addHours(parseISO(group.data[0].fecha), 12);
+        // Si la key es solo un año (ej: "2024"), mostramos solo el año
+        if (/^\d{4}$/.test(group.key)) {
+            return group.key;
+        }
+        // Si no, mostramos el mes
         return format(date, 'MMM', { locale: es }).toUpperCase();
     };
 
@@ -240,128 +262,142 @@ const AYR= () => {
       document.body.classList.toggle('dark-mode', darkMode);
   };
 
+    const handleTabChange = (tabId) => {
+        setActiveTab(tabId);
+    };
+
+    const handleInfoClick = (tabId) => {
+        setShowModal(true);
+    };
+
     return (
-      <div className={`app-container ${darkMode ? '' : 'dark-mode'}`}>
-        <Navbar />
-        <div className="update-buttons">
-            <button
-              onClick={updateData}
-              disabled={loading}
-              className="update-button">
-              {loading ? "Actualizando..." : "Actualizar todo"}
-            </button>
-            <button
-              onClick={() => updateSpecificDate(dateToUpdate)}
-              disabled={loading || !dateToUpdate}
-              className="update-button">
-              {loading ? "Actualizando..." : `Actualizar un dia`}
-            </button>
-            <DatePicker
-              selected={dateToUpdate}
-              onChange={(date) => {
-                if (date < subDays(new Date(), 1) && !isWeekend(date)) {
-                  setDateToUpdate(date);
-                } else {
-                  alert("Por favor elegir fecha anterior a hoy y que no sea fin de semana.");
-                }
-              }}
-              dateFormat="dd-MM-YYYY"
-              className="datepicker"
+        <div className={`app-container ${darkMode ? '' : 'dark-mode'}`}>
+            <Navbar />
+            <NavTabs 
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
+                onInfoClick={handleInfoClick}
             />
-            <div className="last-update">
-                <FontAwesomeIcon icon={faClock} />
-                <span>Última actualización: {lastUpdate ? format(parseISO(lastUpdate), 'dd/MM/yyyy') : 'Cargando...'}</span>
-            </div>
-            <button 
-                onClick={() => setShowModal(true)}
-                className="info-button"
-            >
-                <FontAwesomeIcon icon={faInfoCircle} size="2x" />
-            </button>
-            <div className="switch-container">
-            <label className="switch">
-                <input type="checkbox" checked={!darkMode} onChange={toggledarkMode} />
-                <span className="slider"></span>
-            </label>
-            <span className="mode-label">Modo Oscuro</span>
-          </div>
+            {activeTab === 'ayr' && (
+                <>
+                    <div className="update-buttons">
+                        <button
+                          onClick={updateData}
+                          disabled={loading}
+                          className="update-button">
+                          {loading ? "Actualizando..." : "Actualizar todo"}
+                        </button>
+                        <button
+                          onClick={() => updateSpecificDate(dateToUpdate)}
+                          disabled={loading || !dateToUpdate}
+                          className="update-button">
+                          {loading ? "Actualizando..." : `Actualizar un dia`}
+                        </button>
+                        <DatePicker
+                          selected={dateToUpdate}
+                          onChange={(date) => {
+                            if (date < subDays(new Date(), 1) && !isWeekend(date)) {
+                              setDateToUpdate(date);
+                            } else {
+                              alert("Por favor elegir fecha anterior a hoy y que no sea fin de semana.");
+                            }
+                          }}
+                          dateFormat="dd-MM-YYYY"
+                          className="datepicker"
+                        />
+                        <div className="last-update">
+                            <FontAwesomeIcon icon={faClock} />
+                            <span>Última actualización: {lastUpdate ? format(parseISO(lastUpdate), 'dd/MM/yyyy HH:mm') : 'Cargando...'}</span>
+                        </div>
+                        <div className="switch-container">
+                            <label className="switch">
+                                <input type="checkbox" checked={!darkMode} onChange={toggledarkMode} />
+                                <span className="slider"></span>
+                            </label>
+                            <span className="mode-label">Modo Oscuro</span>
+                        </div>
+                    </div>
+                    <div className="pagination-container">
+                        <div className="pagination">
+                            <button onClick={handleShowAll} className={showAll ? "active" : ""}>
+                                ALL
+                            </button>
+                            {groupedData.map((group, index) => (
+                                <button
+                                    key={group.key}
+                                    onClick={() => handlePageChange(index)}
+                                    className={currentPage === index && !showAll ? "active" : ""}>
+                                    {getButtonLabel(group)}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="action-buttons">
+                            <button onClick={downloadExcel} className="download-button">
+                                <FontAwesomeIcon icon={faFileExcel} size="2x" />
+                            </button>
+                
+                        </div>
+                    </div>
+                    <div className="main-content">
+                      <div className="table-container">
+                        <table className="data-table">
+                          <thead>
+                            <tr>
+                              <th>Dia</th>
+                              <th onClick={() => requestSort("fecha")}>Fecha</th>
+                              <th onClick={() => requestSort("flujo_aportes")} className="col-monto">
+                                Flujo Aportes
+                              </th>
+                              <th onClick={() => requestSort("flujo_rescates")} className="col-monto">
+                                Flujo Rescates
+                              </th>
+                              <th onClick={() => requestSort("neto_aportes_rescates")} className="col-monto">
+                                Neto Aportes-Rescates
+                              </th>
+                              <th onClick={() => requestSort("acumulado_aportes")} className="col-monto">
+                                Acumulado Aportes
+                              </th>
+                              <th onClick={() => requestSort("acumulado_rescates")} className="col-monto">
+                                Acumulado Rescates
+                              </th>
+                              <th onClick={() => requestSort("neto_acumulado")} className="col-monto">
+                                Neto Acumulado
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {currentRows.length > 0 ? (
+                              currentRows.map((row) => (
+                                <tr key={row.id}>
+                                  <td>{getDayInitial(addHours(parseISO(row.fecha), 12))}</td>
+                                  <td>{format(addHours(parseISO(row.fecha), 12), "dd-MM-yyyy")}</td>
+                                  <td className="col-monto">{formatNumber(row.flujo_aportes)}</td>
+                                  <td className="col-monto">{formatNumber(row.flujo_rescates)}</td>
+                                  <td className="col-monto">{formatNumber(row.neto_aportes_rescates)}</td>
+                                  <td className="col-monto">{formatNumber(row.acumulado_aportes)}</td>
+                                  <td className="col-monto">{formatNumber(row.acumulado_rescates)}</td>
+                                  <td className="col-monto">{formatNumber(row.neto_acumulado)}</td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan="8">No hay data disponible</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                    <div className="charts-container">
+                      <AportesRescatesNetoChart data={currentRows} darkMode={darkMode}  />
+                      <div style={{ height: '50px' }}></div>
+                      <AcumuladosChart data={currentRows} darkMode={darkMode}  />
+                    </div>
+                </>
+            )}
+            <Modal isOpen={showModal} onClose={() => setShowModal(false)} />
         </div>
-        <div className="pagination-container">
-          <div className="pagination">
-            <button onClick={handleShowAll} className={showAll ? "active" : ""}>
-              ALL
-            </button>
-            {groupedData.map((group, index) => (
-              <button
-                key={group.key}
-                onClick={() => handlePageChange(index)}
-                className={currentPage === index && !showAll ? "active" : ""}>
-                {getButtonLabel(group)}
-              </button>
-            ))}
-          </div>
-          <button onClick={downloadExcel} className="download-button">
-              <FontAwesomeIcon icon={faFileExcel} size="2x" />
-          </button>
-        </div>
-        <div className="main-content">
-          <div className="table-container">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Dia</th>
-                  <th onClick={() => requestSort("fecha")}>Fecha</th>
-                  <th onClick={() => requestSort("flujo_aportes")}>
-                    Flujo Aportes
-                  </th>
-                  <th onClick={() => requestSort("flujo_rescates")}>
-                    Flujo Rescates
-                  </th>
-                  <th onClick={() => requestSort("neto_aportes_rescates")}>
-                    Neto Aportes-Rescates
-                  </th>
-                  <th onClick={() => requestSort("acumulado_aportes")}>
-                    Acumulado Aportes
-                  </th>
-                  <th onClick={() => requestSort("acumulado_rescates")}>
-                    Acumulado Rescates
-                  </th>
-                  <th onClick={() => requestSort("neto_acumulado")}>
-                    Neto Acumulado
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentRows.length > 0 ? (
-                  currentRows.map((row) => (
-                    <tr key={row.id}>
-                      <td>{getDayInitial(addHours(parseISO(row.fecha), 12))}</td>
-                      <td>{format(addHours(parseISO(row.fecha), 12), "dd-MM-yyyy")}</td>
-                      <td>{formatNumber(row.flujo_aportes)}</td>
-                      <td>{formatNumber(row.flujo_rescates)}</td>
-                      <td>{formatNumber(row.neto_aportes_rescates)}</td>
-                      <td>{formatNumber(row.acumulado_aportes)}</td>
-                      <td>{formatNumber(row.acumulado_rescates)}</td>
-                      <td>{formatNumber(row.neto_acumulado)}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="8">No hay data disponible</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div className="charts-container">
-          <AportesRescatesNetoChart data={currentRows} darkMode={darkMode}  />
-          <div style={{ height: '50px' }}></div>
-          <AcumuladosChart data={currentRows} darkMode={darkMode}  />
-        </div>
-        <Modal isOpen={showModal} onClose={() => setShowModal(false)} />
-      </div>
-    );       
+    );
 };
 
 export default AYR;

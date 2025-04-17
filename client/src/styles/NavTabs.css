@@ -1,0 +1,71 @@
+.nav-tabs {
+    position: fixed;
+    top: 80px; /* Altura del navbar */
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: left; /* Alineamos a la izquierda */
+    align-items: center; /* Centramos verticalmente */
+    gap: 10px;
+    padding: 0.8rem 2rem 0.8rem 4.2rem; /* Aumentamos el padding izquierdo */
+    height: 20px; /* Altura fija */
+    background-color: #f26439;
+    border-bottom: 1px solid #f26439;
+    z-index: 999;
+}
+
+.nav-tab {
+    display: flex;
+    align-items: center;
+    padding: 0rem 1rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.3s;
+    color: white;
+    font-weight: bold;
+    background-color: rgba(255, 255, 255, 0.1);
+    width: 180px; /* Ancho fijo para todas las pestañas */
+    height: 35px; /* Altura fija para los botones */
+}
+
+.nav-tab:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.nav-tab.active {
+    background-color: white;
+    color: #f26439;
+}
+
+.nav-tab .info-button {
+    background: none;
+    justify-content: flex-end;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    color: inherit;
+}
+
+.nav-tab .info-button:hover {
+    opacity: 0.8;
+}
+
+/* Dark mode styles */
+body.dark-mode .nav-tabs {
+    background-color: #f26439;
+    border-bottom: 1px solid #f26439;
+}
+
+body.dark-mode .nav-tab {
+    color: white;
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
+body.dark-mode .nav-tab:hover {
+    background-color: rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .nav-tab.active {
+    background-color: black;
+    color: #f26439;
+} 
