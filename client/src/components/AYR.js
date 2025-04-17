@@ -13,7 +13,7 @@ import Modal from './Modal';
 import NavTabs from './NavTabs';
 
 const apiUrl = process.env.NODE_ENV === 'production' 
-    ? '/api' 
+    ? process.env.REACT_APP_API_URL || '/api'
     : process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
 
 const AYR = () => {
