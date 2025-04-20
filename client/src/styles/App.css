@@ -1,0 +1,193 @@
+:root {
+    --primary-color: #f26439;
+    --text-color: #000000;
+    --background-color: #ffffff;
+    --hover-opacity: 0.2;
+    --transition-speed: 0.3s;
+}
+
+.app-container {
+    background-color: var(--background-color);
+    font-family: 'Inter', sans-serif;
+    padding: 0; /* Añadimos los mismos márgenes que tiene la tabla */
+}
+
+.header {
+    background-color: var(--background-color);
+    border-bottom: 1px solid var(--primary-color);
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    position: relative;
+}
+
+.logo-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    padding: 0;
+}
+
+.logo-img {
+    width: 200px;
+    padding: 0;
+    margin: 0;
+}
+
+.navbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    background-color: var(--primary-color);
+    padding: 5px;
+}
+
+.nav-tab {
+    display: flex;
+    position: relative;
+    left:3.5rem;
+    height: 35px; /* Aumentamos la altura */
+    cursor: pointer;
+    padding: 8px 16px; /* Mismo padding que los botones de actualizar */
+    border-radius: 4px;
+    color: white;
+    font-size: 16px; /* Mismo tamaño de fuente */
+    font-weight: 600; /* Mismo peso de fuente */
+    background-color: rgba(255, 255, 255, 0.1);
+    border: none;
+    gap: 8px;
+    min-width: 150px; /* Mismo ancho mínimo que los botones de actualizar */
+    transition: all var(--transition-speed) ease; /* Misma transición */
+}
+
+.nav-tab:hover {
+    background-color: rgba(255, 255, 255, var(--hover-opacity));
+}
+
+.nav-tab.active {
+    background-color: white;
+    color: var(--primary-color);
+}
+
+.nav-tab .info-button {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-speed) ease;
+    font-size: 16px;
+    margin-left: 4px;
+}
+
+.nav-tab .info-button:hover {
+    color: #d9531e;
+    transform: scale(1.1);
+}
+
+
+/* Dark mode switch styles */
+.dark-mode-switch {
+    position: absolute;
+    right: 60px;
+    margin-left: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.dark-mode-switch input {
+    display: none;
+}
+
+.dark-mode-switch .slider {
+    width: 40px;
+    height: 20px;
+    background-color: black;
+    display: inline-block;
+    border-radius: 20px;
+    position: relative;
+}
+
+.dark-mode-switch .slider:before {
+    content: "";
+    height: 14px;
+    width: 14px;
+    background-color: var(--primary-color);
+    border-radius: 50%;
+    position: absolute;
+    left: 23px;
+    bottom: 3px;
+    transition: var(--transition-speed);
+}
+
+.dark-mode-switch input:checked + .slider:before {
+    transform: translateX(-20px);
+    background-color: var(--primary-color);
+}
+
+.dark-mode-switch input:checked + .slider {
+    background-color: white;
+}
+
+.dark-mode-switch .mode-label {
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+} 
+
+.content-container {
+    padding: 3.5rem; /* 80px del navbar + 40px del nav-tabs */
+    width: 100%;
+}
+/* Dark mode styles */
+.dark-mode {
+    --background-color: rgb(0, 0, 0);
+    --text-color: rgb(255, 255, 255);
+}
+
+.dark-mode .logo-container {
+    background-color: #ffffff;
+}
+
+.dark-mode .navbar {
+    background-color: var(--primary-color);
+    border-bottom: 1px solid var(--primary-color);
+}
+
+.dark-mode .nav-tab {
+    color: black;
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
+.dark-mode .nav-tab:hover {
+    background-color: rgba(0, 0, 0, 0.3);
+    border-color: #ff8c6b;
+}
+
+.dark-mode .nav-tab.active {
+    background-color: var(--background-color);
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.dark-mode .nav-tab .info-button {
+    color: var(--text-color);
+}
+
+.dark-mode .nav-tab .info-button:hover {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.dark-mode .mode-label {
+    color: black;
+}
+
+

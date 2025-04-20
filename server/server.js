@@ -15,6 +15,7 @@ const rateLimit = require('express-rate-limit');
 const { pool, updateDataAndSave, updateSpecificDate, downloadExcel } = require('./aportesyrescates.js');
 const path = require('path');
 const { addHours, format } = require('date-fns');
+const fs = require('fs');
 
 // Debug environment variables
 console.log('Environment Variables:');
@@ -27,7 +28,9 @@ const PORT = process.env.PORT || 3000;
 
 // CORS configuration - Aplicar CORS antes que cualquier otro middleware
 app.use(cors({
-    origin: 'http://localhost:3001',
+    origin: process.env.NODE_ENV === 'production' 
+        ? process.env.RAILWAY_PUBLIC_DOMAIN || 'http://localhost:3001'
+        : 'http://localhost:3001',
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
@@ -112,14 +115,24 @@ app.get('/api/download-excel', async (req, res) => {
     }
 });
 
-// Serve static files in production
+// Serve static files only in production
 if (process.env.NODE_ENV === 'production') {
-    // Serve static files from the React app
-    app.use(express.static(path.join(__dirname, '../client/build')));
+    const buildPath = path.join(__dirname, '../client/build');
+    if (fs.existsSync(buildPath)) {
+        // Serve static files from the React app
+        app.use(express.static(buildPath));
 
-    // Handle React routing, return all requests to React app
-    app.get('*', (req, res) => {
-        res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+        // Handle React routing, return all requests to React app
+        app.get('*', (req, res) => {
+            res.sendFile(path.join(buildPath, 'index.html'));
+        });
+    } else {
+        console.warn('React build directory not found. Skipping static file serving.');
+    }
+} else {
+    // In development, just serve the API
+    app.get('/', (req, res) => {
+        res.send('API Server running in development mode. Frontend should be running on port 3001.');
     });
 }
 
