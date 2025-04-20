@@ -513,16 +513,20 @@ const OperacionesAFinix = ({ darkMode }) => {
 
             newWorkbook.Sheets['FIP'] = hojaFIP;
 
-            // Obtener la fecha del nombre del archivo de entrada
-            const nombreArchivo = archivoEntrada.name;
-            const fechaMatch = nombreArchivo.match(/(\d{8})/); // Busca 8 dígitos consecutivos
-            const fechaFormateada = fechaMatch ? fechaMatch[1] : '';
-
-            // Crear el nombre del archivo con el formato solicitado
-            const nuevoNombre = `Control Operaciones Diarias FIP ${fechaFormateada}.xlsx`;
+            // Obtener la fecha del archivo y formatearla
+            const primeraFila = datosEntrada[0];
+            if (primeraFila && primeraFila.Fecha) {
+                const fechaStr = primeraFila.Fecha;
+                const year = fechaStr.substring(0, 4);
+                const month = fechaStr.substring(4, 6);
+                const day = fechaStr.substring(6, 8);
+                const fechaFormateada = `${day}.${month}.${year}`;
+                
+                // Crear el nombre del archivo con el formato solicitado
+                const nuevoNombre = `Control Operaciones Diarias FIP ${fechaFormateada}.xls`;
 
             const arrayBuffer = XLSX.write(newWorkbook, { 
-                bookType: 'xlsx', 
+                bookType: 'xls', 
                 type: 'array',
                 bookSST: true
             });
@@ -539,8 +543,12 @@ const OperacionesAFinix = ({ darkMode }) => {
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
 
-            setDescargaExitosa(true);
-            setProcessingStatus('');
+                setDescargaExitosa(true);
+                setProcessingStatus('');
+            } else {
+                setProcessingStatus('Error: No se pudo obtener la fecha del archivo');
+                setDescargaExitosa(false);
+            }
         } catch (error) {
             setProcessingStatus(`Error procesando archivo: ${error.message}`);
             setDescargaExitosa(false);
