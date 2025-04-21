@@ -1,6 +1,5 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { addDays } from 'date-fns';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileExcel, faPlus, faTrash, faCheck, faEdit } from '@fortawesome/free-solid-svg-icons';
 import DatePicker from 'react-datepicker';
@@ -37,6 +36,7 @@ const OperacionesAFinix = ({ darkMode }) => {
     const [descargaExitosa, setDescargaExitosa] = useState(false);
     const [showDateWarning, setShowDateWarning] = useState(false);
     const [warningMessage, setWarningMessage] = useState('');
+    const [feriados, setFeriados] = useState([]);
 
     const corredores = useMemo(() => [
         { codigo: 1, nombre: 'EMF' },
@@ -61,30 +61,102 @@ const OperacionesAFinix = ({ darkMode }) => {
         { codigo: 51, nombre: 'NEVASA' }
     ], []);
 
+    // Función para cargar los feriados desde boostr.cl
+    const cargarFeriados = useCallback(async () => {
+        try {
+            console.log('Iniciando carga de feriados desde API boostr.cl...');
+            const response = await fetch('https://api.boostr.cl/holidays.json');
+            console.log('Respuesta de la API:', response.status, response.statusText);
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Datos recibidos de la API:', data);
+                
+                if (data.status === 'success' && Array.isArray(data.data)) {
+                    // Convertir las fechas al formato MM-DD
+                    const feriadosFormateados = data.data.map(feriado => {
+                        const fecha = new Date(feriado.date);
+                        const mesDia = `${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
+                        console.log('Feriado convertido:', feriado.date, '->', mesDia);
+                        return mesDia;
+                    });
+                    
+                    console.log('Feriados formateados:', feriadosFormateados);
+                    setFeriados(feriadosFormateados);
+                } else {
+                    console.error('Formato de datos inválido de la API');
+                }
+            } else {
+                console.error('Error en la respuesta de la API:', response.status);
+            }
+        } catch (error) {
+            console.error('Error al cargar feriados:', error);
+        }
+    }, []);
+
+    // Cargar feriados al montar el componente
+    useEffect(() => {
+        cargarFeriados();
+    }, [cargarFeriados]);
+
+    // Función para verificar si una fecha es feriado
+    const esFeriado = useCallback((fecha) => {
+        const mesDia = `${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
+        return feriados.includes(mesDia);
+    }, [feriados]);
+
+    // Función para obtener el siguiente día hábil
+    const obtenerSiguienteDiaHabil = useCallback((fecha) => {
+        let fechaActual = new Date(fecha);
+        fechaActual.setDate(fechaActual.getDate() + 1);
+        
+        while (fechaActual.getDay() === 0 || fechaActual.getDay() === 6 || esFeriado(fechaActual)) {
+            fechaActual.setDate(fechaActual.getDate() + 1);
+        }
+        
+        return fechaActual;
+    }, [esFeriado]);
+
     const fechadepago = useCallback((fecha, condicion) => {
+        let fechaPago = new Date(fecha);
+        
         switch (condicion) {
             case 'PM':
                 // Para condición PM, la fecha de pago es un día hábil después
-                let fechaPagoPM = addDays(fecha, 1);
-                while (fechaPagoPM.getDay() === 0 || fechaPagoPM.getDay() === 6) {
-                    fechaPagoPM = addDays(fechaPagoPM, 1);
-                }
-                return fechaPagoPM;
+                fechaPago = obtenerSiguienteDiaHabil(fechaPago);
+                break;
             
             case 'PH':
                 // Para condición PH, se paga el mismo día
-                return fecha;
+                // Si es fin de semana o feriado, se paga el siguiente día hábil
+                if (fechaPago.getDay() === 0 || fechaPago.getDay() === 6 || esFeriado(fechaPago)) {
+                    fechaPago = obtenerSiguienteDiaHabil(fechaPago);
+                }
+                break;
             
             case 'CN':
             default:
                 // Para condición CN o cualquier otro caso, se suma 2 días hábiles
-                let fechaPagoCN = addDays(fecha, 2);
-                while (fechaPagoCN.getDay() === 0 || fechaPagoCN.getDay() === 6) {
-                    fechaPagoCN = addDays(fechaPagoCN, 1);
+                // Primero avanzamos un día
+                fechaPago.setDate(fechaPago.getDate() + 1);
+                
+                // Luego avanzamos hasta encontrar el primer día hábil
+                while (fechaPago.getDay() === 0 || fechaPago.getDay() === 6 || esFeriado(fechaPago)) {
+                    fechaPago.setDate(fechaPago.getDate() + 1);
                 }
-                return fechaPagoCN;
+                
+                // Avanzamos otro día
+                fechaPago.setDate(fechaPago.getDate() + 1);
+                
+                // Y avanzamos hasta encontrar el segundo día hábil
+                while (fechaPago.getDay() === 0 || fechaPago.getDay() === 6 || esFeriado(fechaPago)) {
+                    fechaPago.setDate(fechaPago.getDate() + 1);
+                }
+                break;
         }
-    }, []);
+        
+        return fechaPago;
+    }, [obtenerSiguienteDiaHabil, esFeriado]);
 
     const mapearATablaDestino = useCallback((datos) => {
         return datos.map(({
