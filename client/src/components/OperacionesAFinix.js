@@ -63,6 +63,9 @@ const OperacionesAFinix = ({ darkMode }) => {
 
     // Función para cargar los feriados desde boostr.cl
     const cargarFeriados = useCallback(async () => {
+        // Si ya tenemos feriados cargados, no hacemos nada
+        if (feriados.length > 0) return;
+
         try {
             console.log('Iniciando carga de feriados desde API boostr.cl...');
             const response = await fetch('https://api.boostr.cl/holidays.json');
@@ -92,7 +95,7 @@ const OperacionesAFinix = ({ darkMode }) => {
         } catch (error) {
             console.error('Error al cargar feriados:', error);
         }
-    }, []);
+    }, [feriados]);
 
     // Cargar feriados al montar el componente
     useEffect(() => {

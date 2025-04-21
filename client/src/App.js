@@ -37,7 +37,7 @@ const App = () => {
                     <img src="./logo.png" alt="EMF Logo" className="logo-img" />
                 </div>
                 <div className="navbar">
-                    <button 
+                    <div 
                         className={`nav-tab ${activeTab === 'ayr' ? 'active' : ''}`}
                         onClick={() => handleTabChange('ayr')}
                     >
@@ -52,8 +52,8 @@ const App = () => {
                         >
                             <FontAwesomeIcon icon={faInfoCircle} />
                         </button>
-                    </button>
-                    <button 
+                    </div>
+                    <div 
                         className={`nav-tab ${activeTab === 'transformar' ? 'active' : ''}`}
                         onClick={() => handleTabChange('transformar')}
                     >
@@ -68,7 +68,7 @@ const App = () => {
                         >
                             <FontAwesomeIcon icon={faInfoCircle} />
                         </button>
-                    </button>
+                    </div>
                     <div className="dark-mode-switch">
                         <span className="mode-label">Modo Oscuro</span>
                         <label>
