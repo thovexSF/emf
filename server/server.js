@@ -24,7 +24,7 @@ console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Present' : 'Missing');
 console.log('RAILWAY_PUBLIC_DOMAIN:', process.env.RAILWAY_PUBLIC_DOMAIN);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // CORS configuration - Aplicar CORS antes que cualquier otro middleware
 app.use(cors({
@@ -143,7 +143,7 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     console.log('NODE_ENV:', process.env.NODE_ENV);
     console.log('RAILWAY_PUBLIC_DOMAIN:', process.env.RAILWAY_PUBLIC_DOMAIN);
