@@ -59,7 +59,10 @@ const OperacionesAFinix = ({ darkMode }) => {
         { codigo: 86, nombre: 'BANCHILE' },
         { codigo: 90, nombre: 'CONSORCIO' },
         { codigo: 51, nombre: 'NEVASA' }
-    ], []);
+    ].map(corredor => ({
+        ...corredor,
+        nombre: corredor.nombre.trim()
+    })), []);
 
     // Función para cargar los feriados desde boostr.cl
     const cargarFeriados = useCallback(async () => {
@@ -186,8 +189,8 @@ const OperacionesAFinix = ({ darkMode }) => {
             const esCompra = Compra === "832";
             const monto = Monto || '0';
 
-            const corredorVendeNombre = corredores.find(c => c.codigo === CorredorVende)?.nombre || CorredorVende;
-            const corredorCompraNombre = corredores.find(c => c.codigo === CorredorCompra)?.nombre || CorredorCompra;
+            const corredorVendeNombre = corredores.find(c => c.codigo === CorredorVende)?.nombre?.trim() || CorredorVende;
+            const corredorCompraNombre = corredores.find(c => c.codigo === CorredorCompra)?.nombre?.trim() || CorredorCompra;
 
             return {
                 Fecha: fecha,
@@ -539,7 +542,7 @@ const OperacionesAFinix = ({ darkMode }) => {
                 return {
                     Fecha: fila.Fecha,
                     Codigo: fila.Codigo,
-                    'Tipo Operación': fila['Tipo Operación'],
+                    'Tipo Operación': fila['Tipo Operación'].trim(),
                     Cantidad: parseNumber(fila.Cantidad),
                     Precio: parseNumber(fila.Precio),
                     'Dcto.': fila['Dcto.'],
@@ -549,11 +552,11 @@ const OperacionesAFinix = ({ darkMode }) => {
                     Cargo: Math.round(parseNumber(fila.Cargo)),
                     Saldo: fila.Saldo,
                     'Fecha Pago': fila['Fecha Pago'],
-                    Corredor: fila.Corredor,
-                    Tipo: fila.Tipo,
-                    '': fila[''],
-                    Tasa: fila.Tasa,
-                    Vcto: fila.Vcto
+                    Corredor: fila.Corredor.trim(),
+                    Tipo: fila.Tipo.trim(),
+                    '': '',
+                    Tasa: '',
+                    Vcto: ''
                 };
             });
 
@@ -563,27 +566,35 @@ const OperacionesAFinix = ({ darkMode }) => {
                 cellDates: true
             });
 
+            // Asegurarnos de que los valores de texto no tengan espacios extra y aplicar formatos
             const range = XLSX.utils.decode_range(hojaFIP['!ref']);
-            for (let R = range.s.r + 1; R <= range.e.r; R++) {
-                const fechaCell = XLSX.utils.encode_cell({r: R, c: 0});
-                hojaFIP[fechaCell].z = 'dd-mm-yy';
-                hojaFIP[fechaCell].t = 'd';
-                
-                const cantidadCell = XLSX.utils.encode_cell({r: R, c: 3});
-                hojaFIP[cantidadCell].t = 'n';
-                hojaFIP[cantidadCell].z = '#,##0';
-                
-                const precioCell = XLSX.utils.encode_cell({r: R, c: 4});
-                hojaFIP[precioCell].t = 'n';
-                hojaFIP[precioCell].z = '#,##0.00';
-                
-                const abonoCell = XLSX.utils.encode_cell({r: R, c: 8});
-                hojaFIP[abonoCell].t = 'n';
-                hojaFIP[abonoCell].z = '#,##0';
-                
-                const cargoCell = XLSX.utils.encode_cell({r: R, c: 9});
-                hojaFIP[cargoCell].t = 'n';
-                hojaFIP[cargoCell].z = '#,##0';
+            for (let R = range.s.r; R <= range.e.r; R++) {
+                for (let C = range.s.c; C <= range.e.c; C++) {
+                    const cell = XLSX.utils.encode_cell({r: R, c: C});
+                    if (hojaFIP[cell]) {
+                        // Limpiar espacios en valores de texto
+                        if (hojaFIP[cell].t === 's') {
+                            hojaFIP[cell].v = hojaFIP[cell].v.trim();
+                        }
+                        
+                        // Aplicar formatos específicos
+                        if (R > 0) { // No aplicar formatos a la fila de encabezados
+                            if (C === 0) { // Columna de fecha
+                                hojaFIP[cell].z = 'dd-mm-yy';
+                                hojaFIP[cell].t = 'd';
+                            } else if (C === 3) { // Columna de cantidad
+                                hojaFIP[cell].t = 'n';
+                                hojaFIP[cell].z = '#,##0';
+                            } else if (C === 4) { // Columna de precio
+                                hojaFIP[cell].t = 'n';
+                                hojaFIP[cell].z = '#,##0.00';
+                            } else if (C === 8 || C === 9) { // Columnas de abono y cargo
+                                hojaFIP[cell].t = 'n';
+                                hojaFIP[cell].z = '#,##0';
+                            }
+                        }
+                    }
+                }
             }
 
             newWorkbook.Sheets['FIP'] = hojaFIP;
