@@ -143,6 +143,97 @@ app.get('/api/download-excel', async (req, res) => {
     }
 });
 
+// Endpoint de diagnóstico
+app.get('/api/health', async (req, res) => {
+    try {
+        const diagnostics = {
+            timestamp: new Date().toISOString(),
+            nodeVersion: process.version,
+            environment: process.env.NODE_ENV,
+            databaseUrl: process.env.DATABASE_URL ? 'Present' : 'Missing',
+            dependencies: {},
+            scraper: {}
+        };
+
+        // Verificar dependencias críticas
+        try {
+            const axios = require('axios');
+            diagnostics.dependencies.axios = 'OK';
+        } catch (e) {
+            diagnostics.dependencies.axios = `Error: ${e.message}`;
+        }
+
+        try {
+            const ExcelJS = require('exceljs');
+            diagnostics.dependencies.exceljs = 'OK';
+        } catch (e) {
+            diagnostics.dependencies.exceljs = `Error: ${e.message}`;
+        }
+
+        // Verificar AYRScraper
+        try {
+            const AYRScraper = require('./AYRScraper');
+            const scraper = new AYRScraper();
+            diagnostics.scraper.load = 'OK';
+            diagnostics.scraper.baseUrl = scraper.baseUrl;
+        } catch (e) {
+            diagnostics.scraper.load = `Error: ${e.message}`;
+        }
+
+        // Verificar conexión a base de datos
+        try {
+            const client = await pool.connect();
+            await client.query('SELECT 1');
+            client.release();
+            diagnostics.database = 'Connected';
+        } catch (e) {
+            diagnostics.database = `Error: ${e.message}`;
+        }
+
+        res.json({
+            status: 'healthy',
+            diagnostics
+        });
+    } catch (error) {
+        console.error('Error in health check:', error);
+        res.status(500).json({ 
+            status: 'unhealthy',
+            error: error.message,
+            stack: error.stack
+        });
+    }
+});
+
+// Endpoint de test para scraper
+app.get('/api/test-scraper', async (req, res) => {
+    try {
+        console.log('Testing scraper functionality...');
+        
+        const AYRScraper = require('./AYRScraper');
+        const scraper = new AYRScraper();
+        
+        // Probar con una fecha reciente
+        const testDate = '2024-12-13';
+        console.log(`Testing scraper with date: ${testDate}`);
+        
+        const data = await scraper.scrapeAYRData(testDate);
+        
+        res.json({
+            success: true,
+            testDate,
+            scrapedData: data,
+            message: 'Scraper test successful'
+        });
+    } catch (error) {
+        console.error('Scraper test failed:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            stack: error.stack
+        });
+    }
+});
+
 // Serve static files only in production
 if (process.env.NODE_ENV === 'production') {
     const buildPath = path.join(__dirname, '../client/build');
