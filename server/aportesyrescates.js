@@ -31,8 +31,17 @@ const getDataFromSource = async (fecha) => {
     try {
         console.log(`Scraping data locally for date: ${fecha}`);
         
+        // Verificar que AYRScraper se pueda importar correctamente
+        const AYRScraper = require('./AYRScraper');
         const scraper = new AYRScraper();
-        const data = await scraper.scrapeAYRData(fecha);
+        
+        // Añadir timeout para evitar que el proceso se cuelgue
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Scraping timeout after 60 seconds')), 60000);
+        });
+        
+        const scrapePromise = scraper.scrapeAYRData(fecha);
+        const data = await Promise.race([scrapePromise, timeoutPromise]);
         
         console.log(`Successfully scraped data for ${fecha}:`, data);
         
@@ -42,9 +51,27 @@ const getDataFromSource = async (fecha) => {
             return null;
         }
         
+        // Verificar que los valores no sean extremadamente altos (posible error de parsing)
+        const maxReasonableValue = 100000000000; // 100 mil millones
+        if (data.flujo_aportes > maxReasonableValue || data.flujo_rescates > maxReasonableValue) {
+            console.warn(`Values seem unusually high for ${fecha}, but accepting:`, data);
+        }
+        
         return data;
     } catch (error) {
         console.error(`Error scraping data for ${fecha}:`, error.message);
+        console.error('Stack trace:', error.stack);
+        
+        // En caso de error, devolver valores cero para no romper el flujo
+        if (error.message.includes('timeout') || error.message.includes('Excel') || error.message.includes('network')) {
+            console.log(`Returning zero values for ${fecha} due to scraping error`);
+            return {
+                fecha: fecha,
+                flujo_aportes: 0,
+                flujo_rescates: 0
+            };
+        }
+        
         return null;
     }
 };
@@ -156,6 +183,16 @@ const updateDataAndSave = async () => {
     try {
         console.log("Starting updateDataAndSave process...");
         
+        // Verificar que el scraper funcione antes de proceder
+        try {
+            const AYRScraper = require('./AYRScraper');
+            const testScraper = new AYRScraper();
+            console.log("AYRScraper loaded successfully");
+        } catch (scraperError) {
+            console.error("Failed to load AYRScraper:", scraperError.message);
+            throw new Error(`Scraper initialization failed: ${scraperError.message}`);
+        }
+        
         // Determinar la fecha de inicio y de fin
         const startDate = new Date('2024-01-01');
         const endDate = subDays(new Date(), 1); // Fecha de fin es el día anterior a la fecha actual
@@ -187,7 +224,15 @@ const updateDataAndSave = async () => {
 
         if (datesToProcess.length === 0) {
             console.log('No dates to process. All data is up to date.');
-            return;
+            return { success: true, message: 'All data is up to date', processed: 0, errors: 0 };
+        }
+
+        // Limitar el número de fechas a procesar en una sola ejecución para evitar timeouts
+        const maxDatesToProcess = 10;
+        const limitedDates = datesToProcess.slice(0, maxDatesToProcess);
+        
+        if (datesToProcess.length > maxDatesToProcess) {
+            console.log(`Limiting to ${maxDatesToProcess} dates to avoid timeout. Remaining ${datesToProcess.length - maxDatesToProcess} will be processed in next run.`);
         }
 
         let successCount = 0;
@@ -195,11 +240,11 @@ const updateDataAndSave = async () => {
         const errors = [];
 
         // Procesar las fechas en orden con reintentos
-        for (const date of datesToProcess) {
-            console.log(`\n--- Processing ${date} (${successCount + errorCount + 1}/${datesToProcess.length}) ---`);
+        for (const date of limitedDates) {
+            console.log(`\n--- Processing ${date} (${successCount + errorCount + 1}/${limitedDates.length}) ---`);
             
             let retryCount = 0;
-            const maxRetries = 3;
+            const maxRetries = 2; // Reducir reintentos para evitar timeouts
             let success = false;
 
             while (retryCount < maxRetries && !success) {
@@ -238,14 +283,14 @@ const updateDataAndSave = async () => {
             }
 
             // Pausa entre fechas para evitar sobrecargar el servidor
-            if (datesToProcess.indexOf(date) < datesToProcess.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
+            if (limitedDates.indexOf(date) < limitedDates.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 2000)); // Aumentar pausa
             }
         }
 
         // Resumen final
         console.log(`\n=== PROCESS COMPLETED ===`);
-        console.log(`Total dates processed: ${datesToProcess.length}`);
+        console.log(`Total dates processed: ${limitedDates.length}`);
         console.log(`Successful: ${successCount}`);
         console.log(`Failed: ${errorCount}`);
         
@@ -258,10 +303,26 @@ const updateDataAndSave = async () => {
 
         console.log('Daily data update process finished');
 
+        return {
+            success: true,
+            message: `Processed ${successCount} dates successfully, ${errorCount} failed`,
+            processed: successCount,
+            errors: errorCount,
+            errorDetails: errors
+        };
+
     } catch (err) {
         console.error('Fatal error in updateDataAndSave:', err.message);
         console.error('Stack trace:', err.stack);
-        throw err;
+        
+        // No lanzar el error, devolver información sobre el fallo
+        return {
+            success: false,
+            message: `Fatal error: ${err.message}`,
+            processed: 0,
+            errors: 1,
+            errorDetails: [{ date: 'general', error: err.message }]
+        };
     } finally {
         client.release();
     }

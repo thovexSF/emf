@@ -72,11 +72,39 @@ app.get('/api/fetch-data', async (req, res) => {
 
 app.get('/api/updateall', async (req, res) => {
     try {
-        await updateDataAndSave();
-        res.json({ message: 'Datos actualizados' });
+        console.log('Starting updateall process...');
+        const result = await updateDataAndSave();
+        
+        // Si updateDataAndSave devuelve un objeto con información del resultado
+        if (result && typeof result === 'object') {
+            if (result.success) {
+                res.json({ 
+                    message: result.message,
+                    processed: result.processed,
+                    errors: result.errors,
+                    success: true
+                });
+            } else {
+                res.status(500).json({ 
+                    error: result.message,
+                    processed: result.processed,
+                    errors: result.errors,
+                    errorDetails: result.errorDetails,
+                    success: false
+                });
+            }
+        } else {
+            // Mantener compatibilidad con versión anterior
+            res.json({ message: 'Datos actualizados', success: true });
+        }
     } catch (error) {
         console.error('Error en /api/updateall:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ 
+            error: error.message,
+            success: false,
+            processed: 0,
+            errors: 1
+        });
     }
 });
 
