@@ -1,53 +1,174 @@
+/* === LAYOUT PRINCIPAL === */
 .update-buttons {
-    margin-top: 0px;
-    display:flex;
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
 
-}   
-.update-button {
-    padding: 8px;
-    margin-right:20px;
+.update-from-section, .update-single-section {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.datepicker-with-button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.last-update {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+    color: var(--text-color);
+    font-size: 14px;
+    margin-top: 20px;
+}
+
+.last-update svg {
+    margin-right: 8px;
+    color: #f26439;
+}
+
+/* === BOTONES === */
+.update-button-compact {
+    padding: 8px 12px;
     background-color: #f26439;
     color: #ffffff;
     border: 2px solid #f26439;
     cursor: pointer;
-    font-size: 16px;
+    font-size: 13px;
     font-weight: 600;
     border-radius: 4px;
-    min-width: 150px;
+    height: 40px;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: all 0.3s ease;
-}
-.last-update {
-  display: flex;
-  align-items: center;
-  margin-left: 20px;
-  color: var(--text-color);
-  font-size: 14px;
+    flex-shrink: 0;
+    box-sizing: border-box;
 }
 
-.last-update svg {
-  margin-right: 8px;
-  color: #f26439;
-}
-
-.update-button:hover:not(.active) {
+.update-button-compact:hover:not(:disabled) {
     background-color: #ffffff;
     color: #f26439;
 }
 
-.update-button:disabled {
+.update-button-compact:disabled {
     background-color: #f8a38a;
+    border-color: #f8a38a;
     cursor: not-allowed;
+    opacity: 0.6;
 }
 
+/* Estado de procesamiento */
+.update-button-compact.processing {
+    background-color: #ff8c42;
+    border-color: #ff8c42;
+    color: #ffffff;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+/* === DATEPICKER === */
 .datepicker {
-    padding: 10px;
+    padding: 8px 10px;
     font-size: 14px;
     border-radius: 4px;
     text-align: center;
-    width:100px;
+    width: 140px;
     border: 2px solid #f26439;
+    height: 40px;
+    box-sizing: border-box;
+    line-height: 1;
 }
 
+/* Estilos para DatePicker - colores naranjas */
+.react-datepicker {
+    z-index: 9999 !important;
+}
+
+.react-datepicker-popper {
+    z-index: 9999 !important;
+}
+
+.react-datepicker__triangle {
+    z-index: 9999 !important;
+}
+
+.react-datepicker-wrapper {
+    position: relative;
+    z-index: 10;
+}
+
+.react-datepicker__header {
+    background-color: #f26439 !important;
+    border-bottom: 1px solid #f26439 !important;
+}
+
+.react-datepicker__current-month,
+.react-datepicker__day-name {
+    color: white !important;
+}
+
+.react-datepicker__day:hover {
+    background-color: #f26439 !important;
+    color: white !important;
+}
+
+.react-datepicker__day--selected {
+    background-color: #f26439 !important;
+    color: white !important;
+}
+
+.react-datepicker__day--keyboard-selected {
+    background-color: #f8a38a !important;
+    color: white !important;
+}
+
+.react-datepicker__navigation--previous,
+.react-datepicker__navigation--next {
+    border-color: transparent transparent transparent #f26439 !important;
+}
+
+.react-datepicker__navigation--next {
+    border-color: transparent #f26439 transparent transparent !important;
+}
+
+.react-datepicker__month-dropdown,
+.react-datepicker__year-dropdown {
+    background-color: white !important;
+    border: 1px solid #f26439 !important;
+}
+
+.react-datepicker__month-option:hover,
+.react-datepicker__year-option:hover {
+    background-color: #f26439 !important;
+    color: white !important;
+}
+
+.react-datepicker__month-option--selected,
+.react-datepicker__year-option--selected {
+    background-color: #f26439 !important;
+    color: white !important;
+}
+
+/* === TABLA === */
 .table-container {
     display: flex;
     flex-direction: column;
@@ -83,9 +204,10 @@
     background-color: #f26439;
     color: #ffffff;
 }
+
 .pagination button:hover:not(.active) {
-  background-color: #f26439;
-  color: #ffffff;
+    background-color: #f26439;
+    color: #ffffff;
 }
 
 .download-button {
@@ -98,7 +220,7 @@
     align-items: center;
     justify-content: center;
     transition: color 0.3s ease;
-    margin-left: auto; /* Esto asegura que el botón se mantenga a la derecha */
+    margin-left: auto;
 }
 
 .download-button:hover {
@@ -128,7 +250,8 @@
     padding-top: 12px;
     padding-bottom: 12px;
     background-color: #f26439;
-    color: #ffffff;
+    color: #ffffff !important;
+    font-weight: bold !important;
     cursor: pointer;
 }
 
@@ -143,6 +266,10 @@
     text-overflow: ellipsis;
 }
 
+.data-table td {
+    font-weight: normal;
+}
+
 .data-table td:not(:first-child):not(:nth-child(2)) {
     text-align: right;
 }
@@ -154,7 +281,7 @@
 .data-table .col-monto {
     width: 170px;
     min-width: 150px;
-    
+    font-weight: normal;
 }
 
 .data-table tr:hover {
@@ -162,106 +289,111 @@
     color: #f26439;
 }
 
+/* Destacar la última fila registrada */
+.data-table tr.last-registered {
+    background-color: #fff0e6;
+    border-left: 4px solid #f26439;
+}
 
+.data-table tr.last-registered:hover {
+    background-color: #ffe0cc;
+    color: #f26439;
+}
+
+/* === GRÁFICOS === */
 .charts-container {
-  margin: 50px 0 0px 0;
-  width: 80%;
-  justify-content: center
+    margin: 50px 0 0px 0;
+    width: fit-content;
+    justify-content: center;
 }
 
 .charts-container > div {
-  margin-top: 40px;
-  margin-bottom: 40px;
+    margin-top: 40px;
+    margin-bottom: 40px;
 }
+
+/* === MODO OSCURO === */
 .action-buttons {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
 }
 
-
-/* Modo oscuro App */
-
-
-.dark-mode .update-button{
-  background-color: #f26439;
-  color: #ffffff;
-  border: 2px solid #f26439;
-}
-
-.dark-mode .update-button:hover {
-  background-color: #000000;
-  color: #f26439;
-}
-
-.dark-mode .datepicker {
-  background-color: black;
-  color: #ffffff;
-  border: 2px solid #f26439;
-}
-
-.dark-mode .data-table {
-  background-color: rgb(0, 0, 0);
-  color: white;
-}
-
-.dark-mode .pagination button {
-  background-color: #1a1a1a;
-  color: #f26439;
-  border: 2px solid #f26439;
-}
-
-.dark-mode .pagination button.active {
-  background-color: #f26439;
-  color: #ffffff;
-}
-.dark-mode .download-button {
- 
-  color: #219c4a;
-}
-
-.dark-mode .download-button:hover {
-  color: #26e16b;;
-}
-
-
-.dark-mode .data-table th,
-.dark-mode .data-table td {
-  border-color: #f26439;
-}
-
-.dark-mode .data-table th {
-  background-color: #f26439;
-  color: #ffffff;
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-.dark-mode .data-table tr:hover {
-  background-color: #2a2a2a;
-  color: #f26439;
-}
-
-.dark-mode .charts-container {
-  background-color: rgb(0, 0, 0);
-  color: #f26439;
-}
-
-/* Dark mode specific styles */
-.dark-mode .last-update {
-    color: #f26439;
-}
-
-/* Dark mode specific styles */
-.dark-mode .info-button {
-    color: #f26439;
-}
-
-.dark-mode .info-button:hover {
+.dark-mode .update-button-compact {
+    background-color: #d73d26;
+    border-color: #d73d26;
     color: #ffffff;
 }
 
+.dark-mode .update-button-compact:hover:not(:disabled) {
+    background-color: #333;
+    color: #d73d26;
+}
+
+.dark-mode .update-button-compact:disabled {
+    background-color: #8a2f1e;
+    border-color: #8a2f1e;
+    opacity: 0.6;
+}
+
+.dark-mode .update-button-compact.processing {
+    background-color: #e56a3a;
+    border-color: #e56a3a;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+.dark-mode .datepicker {
+    background-color: #333;
+    color: #ffffff;
+    border-color: #d73d26;
+}
+
+.dark-mode .data-table {
+    background-color: rgb(0, 0, 0);
+    color: white;
+}
+
+.dark-mode .data-table th,
+.dark-mode .data-table td {
+    border-color: #f26439;
+}
+
+.dark-mode .data-table th {
+    background-color: #f26439;
+    color: #ffffff !important;
+    font-weight: bold !important;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.dark-mode .data-table tr:hover {
+    background-color: #2a2a2a;
+    color: #f26439;
+}
+
+.dark-mode .pagination button {
+    background-color: #333;
+    color: #d73d26;
+    border-color: #d73d26;
+}
+
+.dark-mode .pagination button.active {
+    background-color: #d73d26;
+    color: #ffffff;
+}
 
 .dark-mode .download-button {
     color: #219c4a;
@@ -271,10 +403,31 @@
     color: #26e16b;
 }
 
-.dark-mode .info-button {
+.dark-mode .data-table .col-monto {
+    font-weight: normal;
+    color: #ffffff;
+}
+
+.dark-mode .last-update {
     color: #f26439;
 }
 
-.dark-mode .info-button:hover {
-    color: #ff8c6b;
+.dark-mode .charts-container {
+    background-color: rgb(0, 0, 0);
+    color: #f26439;
 }
+
+.dark-mode .data-table tr:hover {
+    background-color: #2a2a2a;
+    color: #f26439;
+}
+
+.dark-mode .data-table tr.last-registered {
+    background-color: #1a0f0a;
+    border-left: 4px solid #f26439;
+}
+
+.dark-mode .data-table tr.last-registered:hover {
+    background-color: #2d1a0f;
+    color: #f26439;
+} 

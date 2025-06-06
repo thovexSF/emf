@@ -7,6 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileExcel, faClock } from '@fortawesome/free-solid-svg-icons';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
+import useFeriadosChile from '../hooks/useFeriadosChile';
 import '../styles/AYR.css';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
@@ -57,6 +58,19 @@ export const AYRModalContent = {
 const AportesRescatesNetoChart = ({ data, darkMode }) => {
     const color = darkMode ? '#333' : '#f26439';
     const gridColor = darkMode ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.3)';
+    
+    // Función para formatear números grandes en el eje Y (formato chileno)
+    const formatYAxisNumber = (value) => {
+        if (value >= 1000000000) {
+            return (value / 1000000000).toFixed(0) + 'MMM';
+        } else if (value >= 1000000) {
+            return (value / 1000000).toFixed(0) + 'MM';
+        } else if (value >= 1000) {
+            return (value / 1000).toFixed(0) + 'K';
+        }
+        return value.toString();
+    };
+    
     const labels = data.map(d => format(parseISO(d.fecha), 'dd/MM/yyyy'));
     const aportes = data.map(d => d.flujo_aportes);
     const rescates = data.map(d => d.flujo_rescates);
@@ -90,6 +104,8 @@ const AportesRescatesNetoChart = ({ data, darkMode }) => {
     };
 
     const options = {
+        responsive: true,
+        maintainAspectRatio: true,
         plugins: {
             title: {
                 display: true,
@@ -118,6 +134,9 @@ const AportesRescatesNetoChart = ({ data, darkMode }) => {
                     font: {
                         size: 14,
                     },
+                    callback: function(value) {
+                        return formatYAxisNumber(value);
+                    }
                 },
             },
             x: {
@@ -140,6 +159,19 @@ const AportesRescatesNetoChart = ({ data, darkMode }) => {
 const AcumuladosChart = ({ data, darkMode }) => {
     const color = darkMode ? '#333' : '#f26439';
     const gridColor = darkMode ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.3)';
+    
+    // Función para formatear números grandes en el eje Y (formato chileno)
+    const formatYAxisNumber = (value) => {
+        if (value >= 1000000000) {
+            return (value / 1000000000).toFixed(0) + 'MMM';
+        } else if (value >= 1000000) {
+            return (value / 1000000).toFixed(0) + 'MM';
+        } else if (value >= 1000) {
+            return (value / 1000).toFixed(0) + 'K';
+        }
+        return value.toString();
+    };
+    
     const labels = data.map(d => format(parseISO(d.fecha), 'dd/MM/yyyy'));
     const acumuladoAportes = data.map(d => d.acumulado_aportes);
     const acumuladoRescates = data.map(d => d.acumulado_rescates);
@@ -173,6 +205,8 @@ const AcumuladosChart = ({ data, darkMode }) => {
     };
 
     const options = {
+        responsive: true,
+        maintainAspectRatio: true,
         plugins: {
             title: {
                 display: true,
@@ -201,6 +235,9 @@ const AcumuladosChart = ({ data, darkMode }) => {
                     font: {
                         size: 14,
                     },
+                    callback: function(value) {
+                        return formatYAxisNumber(value);
+                    }
                 },
             },
             x: {
@@ -222,16 +259,23 @@ const AcumuladosChart = ({ data, darkMode }) => {
 
 const AYR = ({ darkMode }) => {
     const [data, setData] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loadingFrom, setLoadingFrom] = useState(false);
+    const [loadingSpecific, setLoadingSpecific] = useState(false);
     const [sortConfig, setSortConfig] = useState({ key: 'fecha', direction: 'desc' });
-    const [dateToUpdate, setDateToUpdate] = useState(subDays(new Date(), 2));
+    const [dateToUpdate, setDateToUpdate] = useState(subDays(new Date(), 1));
+    const [dateToUpdateFrom, setDateToUpdateFrom] = useState(subDays(new Date(), 30)); // 30 días atrás
     const [currentPage, setCurrentPage] = useState(0);
     const [showAll, setShowAll] = useState(false);
     const [lastUpdate, setLastUpdate] = useState(null);
 
+    // Hook para manejar feriados chilenos (preparado para uso futuro)
+    useFeriadosChile();
+
+    // Verificar si hay algún proceso en curso
+    const isAnyLoading = loadingFrom || loadingSpecific;
+
     const fetchData = async () => {
         try {
-            setLoading(true);
             const response = await fetch(`${apiUrl}/fetch-data`);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -250,50 +294,58 @@ const AYR = ({ darkMode }) => {
         } catch (error) {
             console.error('Error fetching data:', error);
             alert('Error al cargar los datos. Por favor, intente nuevamente.');
-        } finally {
-            setLoading(false);
         }
     };
 
-    const updateData = async () => {
-        setLoading(true);
-        try {
-            const response = await fetch(`${apiUrl}/updateall`);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            await fetchData();
-            setLastUpdate(new Date().toISOString());
-            alert('Datos actualizados exitosamente.');
-        } catch (error) {
-            console.error('Error updating data:', error);
-            alert('Error al actualizar los datos. Por favor, intente nuevamente.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const updateSpecificDate = async (date) => {
-        const today = new Date();
-        if (date >= today) {
-            alert('La fecha seleccionada debe ser anterior a hoy.');
+    const updateDataFromDate = async (fromDate) => {
+        if (loadingSpecific) {
+            alert('Hay una actualización específica en proceso. Por favor espera a que termine antes de iniciar otra actualización.');
             return;
         }
-        setLoading(true);
+        
+        // Calcular número aproximado de días hábiles a procesar
+        const today = subDays(new Date(), 1);
+        const diffTime = Math.abs(today - fromDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const approxBusinessDays = Math.floor(diffDays * 0.7); // Aproximadamente 70% son días hábiles
+        
+        const confirmMessage = `⚠️ PROCESO INTENSIVO DE ACTUALIZACIÓN ⚠️
+
+📅 Desde: ${format(fromDate, 'dd/MM/yyyy')}
+📅 Hasta: ${format(today, 'dd/MM/yyyy')}
+📊 Días aproximados a procesar: ${approxBusinessDays} días hábiles
+
+🔄 Este proceso:
+• Descarga datos desde AAFM.cl para cada día
+• Procesa 15 fechas simultáneamente (paralelo)
+• Puede tomar varios minutos dependiendo de las fechas
+• Salta automáticamente feriados y fines de semana
+• No se puede cancelar una vez iniciado
+
+⏱️ Tiempo estimado: ${Math.ceil(approxBusinessDays / 15)} minutos aproximadamente
+
+¿Estás seguro de que quieres continuar?`;
+        
+        if (!window.confirm(confirmMessage)) {
+            return;
+        }
+        
+        setLoadingFrom(true);
         try {
-            const formattedDate = format(date, 'yyyy-MM-dd');
-            const response = await fetch(`${apiUrl}/update/${formattedDate}`);
+            const formattedDate = format(fromDate, 'yyyy-MM-dd');
+            const response = await fetch(`${apiUrl}/updatefrom/${formattedDate}`);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
+            const result = await response.json();
             await fetchData();
             setLastUpdate(new Date().toISOString());
-            alert(`Datos para ${formattedDate} actualizados exitosamente.`);
+            alert(`✅ Actualización desde ${format(fromDate, 'dd/MM/yyyy')} completada: ${result.message || 'Datos actualizados exitosamente'}`);
         } catch (error) {
-            console.error(`Error updating data for ${date}:`, error);
-            alert(`Error al actualizar los datos para ${date}. Por favor, intente nuevamente.`);
+            console.error(`Error updating data from ${fromDate}:`, error);
+            alert(`❌ Error al actualizar los datos desde ${format(fromDate, 'dd/MM/yyyy')}. Por favor, intente nuevamente.`);
         } finally {
-            setLoading(false);
+            setLoadingFrom(false);
         }
     };
 
@@ -404,6 +456,13 @@ const AYR = ({ darkMode }) => {
 
     const currentRows = showAll ? sortedData : (groupedData[currentPage]?.data || []);
 
+    // Encontrar la fecha más reciente en todo el dataset
+    const latestDate = React.useMemo(() => {
+        if (data.length === 0) return null;
+        const dates = data.map(row => new Date(row.fecha));
+        return new Date(Math.max(...dates)).toISOString().split('T')[0];
+    }, [data]);
+
     useEffect(() => {
         fetchData();
         const intervalId = setInterval(fetchData, 24 * 60 * 60 * 1000); // 24 horas
@@ -458,40 +517,103 @@ const AYR = ({ darkMode }) => {
         return days[getDay(date)];
     };
 
+    const updateSpecificDate = async (date) => {
+        if (loadingFrom) {
+            alert('Hay una actualización masiva en proceso. Por favor espera a que termine antes de actualizar una fecha específica.');
+            return;
+        }
+        
+        const today = new Date();
+        if (date >= today) {
+            alert('La fecha seleccionada debe ser anterior a hoy.');
+            return;
+        }
+        setLoadingSpecific(true);
+        try {
+            const formattedDate = format(date, 'yyyy-MM-dd');
+            const response = await fetch(`${apiUrl}/update/${formattedDate}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            await fetchData();
+            setLastUpdate(new Date().toISOString());
+            alert(`Datos para ${formattedDate} actualizados exitosamente.`);
+        } catch (error) {
+            console.error(`Error updating data for ${date}:`, error);
+            alert(`Error al actualizar los datos para ${date}. Por favor, intente nuevamente.`);
+        } finally {
+            setLoadingSpecific(false);
+        }
+    };
+
     return (
         <div>
             <div className="update-buttons">
-                <button
-                  onClick={updateData}
-                  disabled={loading}
-                  className="update-button">
-                  {loading ? "Actualizando..." : "Actualizar todo"}
-                </button>
-                <button
-                  onClick={() => updateSpecificDate(dateToUpdate)}
-                  disabled={loading || !dateToUpdate}
-                  className="update-button">
-                  {loading ? "Actualizando..." : `Actualizar un dia`}
-                </button>
-                <DatePicker
-                  selected={dateToUpdate}
-                  onChange={(date) => {
-                    if (date < subDays(new Date(), 1) && !isWeekend(date)) {
-                      setDateToUpdate(date);
-                    } else {
-                      alert("Por favor elegir fecha anterior a hoy y que no sea fin de semana.");
-                    }
-                  }}
-                  dateFormat="dd-MM-YYYY"
-                  className="datepicker"
-                />
+                <div className="update-from-section">
+                    <div className="datepicker-with-button">
+                        <button
+                          onClick={() => updateDataFromDate(dateToUpdateFrom)}
+                          disabled={isAnyLoading || !dateToUpdateFrom}
+                          className={`update-button-compact ${loadingFrom ? 'processing' : ''}`}
+                          title="Actualizar desde esta fecha">
+                          {loadingFrom ? "..." : "Actualizar desde"}
+                        </button>
+                        <DatePicker
+                          id="datepicker-from"
+                          selected={dateToUpdateFrom}
+                          onChange={(date) => {
+                            if (date < subDays(new Date(), 1)) {
+                              setDateToUpdateFrom(date);
+                            } else {
+                              alert("Por favor elegir fecha anterior a hoy.");
+                            }
+                          }}
+                          dateFormat="dd-MM-yyyy"
+                          className="datepicker compact"
+                          placeholderText="Desde fecha"
+                          showMonthDropdown
+                          showYearDropdown
+                          dropdownMode="select"
+                        />
+                    </div>
+                </div>
+                
+                <div className="update-single-section">
+                    <div className="datepicker-with-button">
+                        <button
+                          onClick={() => updateSpecificDate(dateToUpdate)}
+                          disabled={isAnyLoading || !dateToUpdate}
+                          className={`update-button-compact ${loadingSpecific ? 'processing' : ''}`}
+                          title="Actualizar esta fecha específica">
+                          {loadingSpecific ? "..." : "Actualizar día"}
+                        </button>
+                        <DatePicker
+                          id="datepicker-single"
+                          selected={dateToUpdate}
+                          onChange={(date) => {
+                            if (date < subDays(new Date(), 1) && !isWeekend(date)) {
+                              setDateToUpdate(date);
+                            } else {
+                              alert("Por favor elegir fecha anterior a hoy y que no sea fin de semana.");
+                            }
+                          }}
+                          dateFormat="dd-MM-yyyy"
+                          className="datepicker compact"
+                          placeholderText="Fecha específica"
+                          showMonthDropdown
+                          showYearDropdown
+                          dropdownMode="select"
+                        />
+                    </div>
+                </div>
+                
                 <div className="last-update">
                     <FontAwesomeIcon icon={faClock} />
                     <span>Última actualización: {lastUpdate ? format(parseISO(lastUpdate), 'dd/MM/yyyy HH:mm') : 'Cargando...'}</span>
                 </div>
             </div>
-           
-              <div className="table-container">
+
+            <div className="table-container">
                 <div className="pagination-container">
                   <div className="pagination">
                     <button onClick={handleShowAll} className={showAll ? "active" : ""}>
@@ -539,18 +661,22 @@ const AYR = ({ darkMode }) => {
                   </thead>
                   <tbody>
                     {currentRows.length > 0 ? (
-                      currentRows.map((row) => (
-                        <tr key={row.id}>
-                          <td>{getDayInitial(addHours(parseISO(row.fecha), 12))}</td>
-                          <td>{format(addHours(parseISO(row.fecha), 12), "dd-MM-yyyy")}</td>
-                          <td className="col-monto">{formatNumber(row.flujo_aportes)}</td>
-                          <td className="col-monto">{formatNumber(row.flujo_rescates)}</td>
-                          <td className="col-monto">{formatNumber(row.neto_aportes_rescates)}</td>
-                          <td className="col-monto">{formatNumber(row.acumulado_aportes)}</td>
-                          <td className="col-monto">{formatNumber(row.acumulado_rescates)}</td>
-                          <td className="col-monto">{formatNumber(row.neto_acumulado)}</td>
-                        </tr>
-                      ))
+                      currentRows.map((row) => {
+                        const rowDate = format(addHours(parseISO(row.fecha), 12), 'yyyy-MM-dd');
+                        const isLatestDate = rowDate === latestDate;
+                        return (
+                          <tr key={row.id} className={isLatestDate ? 'last-registered' : ''}>
+                            <td>{getDayInitial(addHours(parseISO(row.fecha), 12))}</td>
+                            <td>{format(addHours(parseISO(row.fecha), 12), "dd-MM-yyyy")}</td>
+                            <td className="col-monto">{formatNumber(row.flujo_aportes)}</td>
+                            <td className="col-monto">{formatNumber(row.flujo_rescates)}</td>
+                            <td className="col-monto">{formatNumber(row.neto_aportes_rescates)}</td>
+                            <td className="col-monto">{formatNumber(row.acumulado_aportes)}</td>
+                            <td className="col-monto">{formatNumber(row.acumulado_rescates)}</td>
+                            <td className="col-monto">{formatNumber(row.neto_acumulado)}</td>
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
                         <td colSpan="8">No hay data disponible</td>

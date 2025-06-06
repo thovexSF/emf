@@ -12,7 +12,7 @@ const express = require('express');
 const cors = require('cors');
 const cron = require('node-cron');
 const rateLimit = require('express-rate-limit');
-const { pool, updateDataAndSave, updateSpecificDate, downloadExcel } = require('./aportesyrescates.js');
+const { pool, updateDataAndSave, updateSpecificDate, downloadExcel, updateDataAndSaveForced, updateDataFromDate, removeHolidaysFromDatabase, getChileanHolidays } = require('./aportesyrescates.js');
 const path = require('path');
 const { addHours, format } = require('date-fns');
 const fs = require('fs');
@@ -108,6 +108,43 @@ app.get('/api/updateall', async (req, res) => {
     }
 });
 
+// Nuevo endpoint para actualización forzada que incluye registros con valores 0
+app.get('/api/updateall-forced', async (req, res) => {
+    try {
+        console.log('Starting FORCED updateall process...');
+        const result = await updateDataAndSaveForced();
+        
+        if (result && typeof result === 'object') {
+            if (result.success) {
+                res.json({ 
+                    message: result.message,
+                    processed: result.processed,
+                    errors: result.errors,
+                    success: true
+                });
+            } else {
+                res.status(500).json({ 
+                    error: result.message,
+                    processed: result.processed,
+                    errors: result.errors,
+                    errorDetails: result.errorDetails,
+                    success: false
+                });
+            }
+        } else {
+            res.json({ message: 'Datos actualizados forzadamente', success: true });
+        }
+    } catch (error) {
+        console.error('Error en /api/updateall-forced:', error);
+        res.status(500).json({ 
+            error: error.message,
+            success: false,
+            processed: 0,
+            errors: 1
+        });
+    }
+});
+
 // Validación de fecha
 const validateDate = (date) => {
     const regex = /^\d{4}-\d{2}-\d{2}$/;
@@ -140,6 +177,108 @@ app.get('/api/download-excel', async (req, res) => {
     } catch (error) {
         console.error('Error en /api/download-excel:', error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint para actualizar desde una fecha específica hasta hoy
+app.get('/api/updatefrom/:date', async (req, res) => {
+    const { date } = req.params;
+    
+    if (!validateDate(date)) {
+        return res.status(400).json({ error: 'Fecha inválida. Debe estar en formato YYYY-MM-DD y ser anterior a hoy.' });
+    }
+
+    try {
+        console.log(`Starting update from date: ${date}`);
+        const result = await updateDataFromDate(date);
+        
+        if (result && typeof result === 'object') {
+            if (result.success) {
+                res.json({ 
+                    message: result.message,
+                    processed: result.processed,
+                    errors: result.errors,
+                    dateRange: result.dateRange,
+                    processedDates: result.processedDates,
+                    success: true
+                });
+            } else {
+                res.status(500).json({ 
+                    error: result.message,
+                    processed: result.processed,
+                    errors: result.errors,
+                    errorDetails: result.errorDetails,
+                    success: false
+                });
+            }
+        } else {
+            res.json({ message: `Datos actualizados desde ${date}`, success: true });
+        }
+    } catch (error) {
+        console.error(`Error en /api/updatefrom/${date}:`, error);
+        res.status(500).json({ 
+            error: error.message,
+            success: false,
+            processed: 0,
+            errors: 1
+        });
+    }
+});
+
+// Endpoint para limpiar feriados de la base de datos
+app.get('/api/remove-holidays', async (req, res) => {
+    try {
+        console.log('Starting holiday removal process...');
+        const result = await removeHolidaysFromDatabase();
+        
+        if (result && typeof result === 'object') {
+            if (result.success) {
+                res.json({ 
+                    message: result.message,
+                    deletedCount: result.deletedCount,
+                    deletedDates: result.deletedDates,
+                    success: true
+                });
+            } else {
+                res.status(500).json({ 
+                    error: result.message,
+                    deletedCount: result.deletedCount,
+                    success: false
+                });
+            }
+        } else {
+            res.json({ message: 'Holiday cleanup completed', success: true });
+        }
+    } catch (error) {
+        console.error('Error en /api/remove-holidays:', error);
+        res.status(500).json({ 
+            error: error.message,
+            success: false,
+            deletedCount: 0
+        });
+    }
+});
+
+// Endpoint para probar la API de feriados chilenos
+app.get('/api/test-holidays', async (req, res) => {
+    try {
+        console.log('Testing Chilean holidays API...');
+        const holidays = await getChileanHolidays();
+        
+        res.json({
+            success: true,
+            message: 'Chilean holidays API test successful',
+            holidaysCount: holidays.length,
+            holidays: holidays.slice(0, 10), // Mostrar solo los primeros 10
+            source: 'boostr.cl API'
+        });
+    } catch (error) {
+        console.error('Chilean holidays API test failed:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            message: 'Failed to fetch holidays from API'
+        });
     }
 });
 

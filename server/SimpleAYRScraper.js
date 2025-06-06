@@ -14,9 +14,9 @@ class SimpleAYRScraper {
     }
 
     formatDateForUrl(date) {
-        // Convertir YYYY-MM-DD a formato de URL
-        const dateObj = new Date(date);
-        return dateObj.toLocaleDateString('en-US'); // MM/DD/YYYY
+        // Convertir YYYY-MM-DD a formato MM/DD/YYYY
+        const [year, month, day] = date.split('-');
+        return `${month}/${day}/${year}`;
     }
 
     buildUrl(date) {
