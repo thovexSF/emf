@@ -2,7 +2,7 @@ const axios = require('axios');
 const { getDay, format, addDays, subDays, isSameMonth, getDate, parseISO, addHours } = require('date-fns');
 const { Pool } = require('pg');
 const ExcelJS = require('exceljs');
-const AYRScraper = require('./AYRScraper'); // Importar nuestro scraper local
+const SimpleAYRScraper = require('./SimpleAYRScraper'); // Usar el scraper simple
 
 // Configuración de la conexión a PostgreSQL
 const pool = new Pool({
@@ -26,18 +26,17 @@ const checkDatabaseConnection = async () => {
 // Verificar la conexión al iniciar
 checkDatabaseConnection();
 
-// Usar el scraper local directamente en lugar de API externa
+// Usar el scraper simple directamente en lugar del complejo
 const getDataFromSource = async (fecha) => {
     try {
-        console.log(`Scraping data locally for date: ${fecha}`);
+        console.log(`Scraping data with simple scraper for date: ${fecha}`);
         
-        // Verificar que AYRScraper se pueda importar correctamente
-        const AYRScraper = require('./AYRScraper');
-        const scraper = new AYRScraper();
+        // Verificar que SimpleAYRScraper se pueda importar correctamente
+        const scraper = new SimpleAYRScraper();
         
         // Añadir timeout para evitar que el proceso se cuelgue
         const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Scraping timeout after 60 seconds')), 60000);
+            setTimeout(() => reject(new Error('Scraping timeout after 30 seconds')), 30000);
         });
         
         const scrapePromise = scraper.scrapeAYRData(fecha);
@@ -51,19 +50,13 @@ const getDataFromSource = async (fecha) => {
             return null;
         }
         
-        // Verificar que los valores no sean extremadamente altos (posible error de parsing)
-        const maxReasonableValue = 100000000000; // 100 mil millones
-        if (data.flujo_aportes > maxReasonableValue || data.flujo_rescates > maxReasonableValue) {
-            console.warn(`Values seem unusually high for ${fecha}, but accepting:`, data);
-        }
-        
         return data;
     } catch (error) {
         console.error(`Error scraping data for ${fecha}:`, error.message);
         console.error('Stack trace:', error.stack);
         
         // En caso de error, devolver valores cero para no romper el flujo
-        if (error.message.includes('timeout') || error.message.includes('Excel') || error.message.includes('network')) {
+        if (error.message.includes('timeout') || error.message.includes('HTTP') || error.message.includes('network')) {
             console.log(`Returning zero values for ${fecha} due to scraping error`);
             return {
                 fecha: fecha,
@@ -185,11 +178,10 @@ const updateDataAndSave = async () => {
         
         // Verificar que el scraper funcione antes de proceder
         try {
-            const AYRScraper = require('./AYRScraper');
-            const testScraper = new AYRScraper();
-            console.log("AYRScraper loaded successfully");
+            const scraper = new SimpleAYRScraper();
+            console.log("SimpleAYRScraper loaded successfully");
         } catch (scraperError) {
-            console.error("Failed to load AYRScraper:", scraperError.message);
+            console.error("Failed to load SimpleAYRScraper:", scraperError.message);
             throw new Error(`Scraper initialization failed: ${scraperError.message}`);
         }
         

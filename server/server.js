@@ -172,8 +172,8 @@ app.get('/api/health', async (req, res) => {
 
         // Verificar AYRScraper
         try {
-            const AYRScraper = require('./AYRScraper');
-            const scraper = new AYRScraper();
+            const SimpleAYRScraper = require('./SimpleAYRScraper');
+            const scraper = new SimpleAYRScraper();
             diagnostics.scraper.load = 'OK';
             diagnostics.scraper.baseUrl = scraper.baseUrl;
         } catch (e) {
@@ -207,14 +207,14 @@ app.get('/api/health', async (req, res) => {
 // Endpoint de test para scraper
 app.get('/api/test-scraper', async (req, res) => {
     try {
-        console.log('Testing scraper functionality...');
+        console.log('Testing simple scraper functionality...');
         
-        const AYRScraper = require('./AYRScraper');
-        const scraper = new AYRScraper();
+        const SimpleAYRScraper = require('./SimpleAYRScraper');
+        const scraper = new SimpleAYRScraper();
         
         // Probar con una fecha reciente
         const testDate = '2024-12-13';
-        console.log(`Testing scraper with date: ${testDate}`);
+        console.log(`Testing simple scraper with date: ${testDate}`);
         
         const data = await scraper.scrapeAYRData(testDate);
         
@@ -222,10 +222,10 @@ app.get('/api/test-scraper', async (req, res) => {
             success: true,
             testDate,
             scrapedData: data,
-            message: 'Scraper test successful'
+            message: 'Simple scraper test successful'
         });
     } catch (error) {
-        console.error('Scraper test failed:', error);
+        console.error('Simple scraper test failed:', error);
         res.status(500).json({
             success: false,
             error: error.message,
