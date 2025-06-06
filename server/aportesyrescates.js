@@ -201,7 +201,11 @@ const updateDataAndSave = async () => {
 
         // Obtener todas las fechas registradas
         const result = await client.query('SELECT fecha FROM daily_statistics ORDER BY fecha');
-        const registeredDates = new Set(result.rows.map(row => format(parseISO(row.fecha), 'yyyy-MM-dd')));
+        const registeredDates = new Set(result.rows.map(row => {
+            // PostgreSQL devuelve fechas como Date objects, no strings
+            const dateObj = row.fecha instanceof Date ? row.fecha : new Date(row.fecha);
+            return format(dateObj, 'yyyy-MM-dd');
+        }));
         
         console.log(`Found ${registeredDates.size} dates already registered in database`);
 
