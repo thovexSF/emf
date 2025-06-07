@@ -59,16 +59,9 @@ const AportesRescatesNetoChart = ({ data, darkMode }) => {
     const color = darkMode ? '#333' : '#f26439';
     const gridColor = darkMode ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.3)';
     
-    // Función para formatear números grandes en el eje Y (formato chileno)
+    // Función para formatear números grandes en el eje Y (formato chileno MM)
     const formatYAxisNumber = (value) => {
-        if (value >= 1000000000) {
-            return (value / 1000000000).toFixed(0) + 'MMM';
-        } else if (value >= 1000000) {
-            return (value / 1000000).toFixed(0) + 'MM';
-        } else if (value >= 1000) {
-            return (value / 1000).toFixed(0) + 'K';
-        }
-        return value.toString();
+        return (value / 1_000_000).toLocaleString('de-DE', { maximumFractionDigits: 0 }) + ' MM';
     };
     
     const labels = data.map(d => format(parseISO(d.fecha), 'dd/MM/yyyy'));
@@ -105,22 +98,22 @@ const AportesRescatesNetoChart = ({ data, darkMode }) => {
 
     const options = {
         responsive: true,
-        maintainAspectRatio: true,
+        maintainAspectRatio: false,
         plugins: {
             title: {
                 display: true,
                 text: 'Aportes y Rescates',
                 color: color,
                 font: {
-                    size: 20,
+                    size: 24,
                 },
+                padding: 20
             },
             legend: {
+                position: 'top',
                 labels: {
                     color: color,
-                    font: {
-                        size: 14,
-                    },
+                    padding: 20
                 },
             },
         },
@@ -134,6 +127,7 @@ const AportesRescatesNetoChart = ({ data, darkMode }) => {
                     font: {
                         size: 14,
                     },
+                    padding: 10,
                     callback: function(value) {
                         return formatYAxisNumber(value);
                     }
@@ -148,6 +142,7 @@ const AportesRescatesNetoChart = ({ data, darkMode }) => {
                     font: {
                         size: 14,
                     },
+                    padding: 10,
                 },
             },
         },
@@ -160,16 +155,9 @@ const AcumuladosChart = ({ data, darkMode }) => {
     const color = darkMode ? '#333' : '#f26439';
     const gridColor = darkMode ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.3)';
     
-    // Función para formatear números grandes en el eje Y (formato chileno)
+    // Función para formatear números grandes en el eje Y (formato chileno MM)
     const formatYAxisNumber = (value) => {
-        if (value >= 1000000000) {
-            return (value / 1000000000).toFixed(0) + 'MMM';
-        } else if (value >= 1000000) {
-            return (value / 1000000).toFixed(0) + 'MM';
-        } else if (value >= 1000) {
-            return (value / 1000).toFixed(0) + 'K';
-        }
-        return value.toString();
+        return (value / 1_000_000).toLocaleString('de-DE', { maximumFractionDigits: 0 }) + ' MM';
     };
     
     const labels = data.map(d => format(parseISO(d.fecha), 'dd/MM/yyyy'));
@@ -206,22 +194,22 @@ const AcumuladosChart = ({ data, darkMode }) => {
 
     const options = {
         responsive: true,
-        maintainAspectRatio: true,
+        maintainAspectRatio: false,
         plugins: {
             title: {
                 display: true,
                 text: 'Acumulado Aportes y Rescates',
                 color: color,
                 font: {
-                    size: 20,
+                    size: 24,
                 },
+                padding: 20
             },
             legend: {
+                position: 'top',
                 labels: {
                     color: color,
-                    font: {
-                        size: 14,
-                    },
+                    padding: 20
                 },
             },
         },
@@ -235,6 +223,7 @@ const AcumuladosChart = ({ data, darkMode }) => {
                     font: {
                         size: 14,
                     },
+                    padding: 10,
                     callback: function(value) {
                         return formatYAxisNumber(value);
                     }
@@ -249,6 +238,7 @@ const AcumuladosChart = ({ data, darkMode }) => {
                     font: {
                         size: 14,
                     },
+                    padding: 10,
                 },
             },
         },
@@ -547,7 +537,7 @@ const AYR = ({ darkMode }) => {
     };
 
     return (
-        <div>
+        <div className="ayr-content">
             <div className="update-buttons">
                 <div className="update-from-section">
                     <div className="datepicker-with-button">
@@ -613,83 +603,83 @@ const AYR = ({ darkMode }) => {
                 </div>
             </div>
 
-            <div className="table-container">
+            <div className="table-charts-wrapper">
                 <div className="pagination-container">
-                  <div className="pagination">
-                    <button onClick={handleShowAll} className={showAll ? "active" : ""}>
-                        ALL
-                    </button>
-                    {groupedData.map((group, index) => (
-                        <button
-                            key={group.key}
-                            onClick={() => handlePageChange(index)}
-                            className={currentPage === index && !showAll ? "active" : ""}>
-                            {getButtonLabel(group)}
+                    <div className="pagination">
+                        <button onClick={handleShowAll} className={showAll ? "active" : ""}>
+                            ALL
                         </button>
-                    ))}
+                        {groupedData.map((group, index) => (
+                            <button
+                                key={group.key}
+                                onClick={() => handlePageChange(index)}
+                                className={currentPage === index && !showAll ? "active" : ""}>
+                                {getButtonLabel(group)}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="action-buttons">
+                        <button onClick={downloadExcel} className="download-button">
+                            <FontAwesomeIcon icon={faFileExcel} size="2x" />
+                        </button>
+                    </div>
                 </div>
-                <div className="action-buttons">
-                    <button onClick={downloadExcel} className="download-button">
-                        <FontAwesomeIcon icon={faFileExcel} size="2x" />
-                    </button>
-                  </div>
+                <div className="table-scroll-wrapper">
+                    <table className="data-table">
+                        <thead>
+                            <tr>
+                                <th>Dia</th>
+                                <th onClick={() => requestSort("fecha")}>Fecha</th>
+                                <th onClick={() => requestSort("flujo_aportes")} className="col-monto">
+                                    Flujo Aportes
+                                </th>
+                                <th onClick={() => requestSort("flujo_rescates")} className="col-monto">
+                                    Flujo Rescates
+                                </th>
+                                <th onClick={() => requestSort("neto_aportes_rescates")} className="col-monto">
+                                    Neto Aportes-Rescates
+                                </th>
+                                <th onClick={() => requestSort("acumulado_aportes")} className="col-monto">
+                                    Acumulado Aportes
+                                </th>
+                                <th onClick={() => requestSort("acumulado_rescates")} className="col-monto">
+                                    Acumulado Rescates
+                                </th>
+                                <th onClick={() => requestSort("neto_acumulado")} className="col-monto">
+                                    Neto Acumulado
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {currentRows.length > 0 ? (
+                                currentRows.map((row) => {
+                                    const rowDate = format(addHours(parseISO(row.fecha), 12), 'yyyy-MM-dd');
+                                    const isLatestDate = rowDate === latestDate;
+                                    return (
+                                        <tr key={row.id} className={isLatestDate ? 'last-registered' : ''}>
+                                            <td>{getDayInitial(addHours(parseISO(row.fecha), 12))}</td>
+                                            <td>{format(addHours(parseISO(row.fecha), 12), "dd-MM-yyyy")}</td>
+                                            <td className="col-monto">{formatNumber(row.flujo_aportes)}</td>
+                                            <td className="col-monto">{formatNumber(row.flujo_rescates)}</td>
+                                            <td className="col-monto">{formatNumber(row.neto_aportes_rescates)}</td>
+                                            <td className="col-monto">{formatNumber(row.acumulado_aportes)}</td>
+                                            <td className="col-monto">{formatNumber(row.acumulado_rescates)}</td>
+                                            <td className="col-monto">{formatNumber(row.neto_acumulado)}</td>
+                                        </tr>
+                                    );
+                                })
+                            ) : (
+                                <tr>
+                                    <td colSpan="8">No hay data disponible</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
                 </div>
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Dia</th>
-                      <th onClick={() => requestSort("fecha")}>Fecha</th>
-                      <th onClick={() => requestSort("flujo_aportes")} className="col-monto">
-                        Flujo Aportes
-                      </th>
-                      <th onClick={() => requestSort("flujo_rescates")} className="col-monto">
-                        Flujo Rescates
-                      </th>
-                      <th onClick={() => requestSort("neto_aportes_rescates")} className="col-monto">
-                        Neto Aportes-Rescates
-                      </th>
-                      <th onClick={() => requestSort("acumulado_aportes")} className="col-monto">
-                        Acumulado Aportes
-                      </th>
-                      <th onClick={() => requestSort("acumulado_rescates")} className="col-monto">
-                        Acumulado Rescates
-                      </th>
-                      <th onClick={() => requestSort("neto_acumulado")} className="col-monto">
-                        Neto Acumulado
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentRows.length > 0 ? (
-                      currentRows.map((row) => {
-                        const rowDate = format(addHours(parseISO(row.fecha), 12), 'yyyy-MM-dd');
-                        const isLatestDate = rowDate === latestDate;
-                        return (
-                          <tr key={row.id} className={isLatestDate ? 'last-registered' : ''}>
-                            <td>{getDayInitial(addHours(parseISO(row.fecha), 12))}</td>
-                            <td>{format(addHours(parseISO(row.fecha), 12), "dd-MM-yyyy")}</td>
-                            <td className="col-monto">{formatNumber(row.flujo_aportes)}</td>
-                            <td className="col-monto">{formatNumber(row.flujo_rescates)}</td>
-                            <td className="col-monto">{formatNumber(row.neto_aportes_rescates)}</td>
-                            <td className="col-monto">{formatNumber(row.acumulado_aportes)}</td>
-                            <td className="col-monto">{formatNumber(row.acumulado_rescates)}</td>
-                            <td className="col-monto">{formatNumber(row.neto_acumulado)}</td>
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr>
-                        <td colSpan="8">No hay data disponible</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-           
-            <div className="charts-container">
-              <AportesRescatesNetoChart data={currentRows} darkMode={darkMode}  />
-              <div style={{ height: '50px' }}></div>
-              <AcumuladosChart data={currentRows} darkMode={darkMode}  />
+                <div className="charts-container">
+                    <div><AportesRescatesNetoChart data={currentRows} darkMode={darkMode} /></div>
+                    <div><AcumuladosChart data={currentRows} darkMode={darkMode} /></div>
+                </div>
             </div>
         </div>
     );

@@ -2,7 +2,7 @@
     --primary-color: #f26439;
     --text-color: #000000;
     --background-color: #ffffff;
-    --hover-opacity: 0.2;
+    --hover-opacity: 0.3;
     --transition-speed: 0.3s;
 }
 
@@ -28,7 +28,7 @@
     justify-content: center;
     align-items: center;
     width: 100%;
-    padding: 0;
+    padding: 10px;
 }
 
 .logo-img {
@@ -57,7 +57,7 @@
     color: white;
     font-size: 16px; /* Mismo tamaño de fuente */
     font-weight: 600; /* Mismo peso de fuente */
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(255, 255, 255, 0.2);
     border: none;
     gap: 8px;
     min-width: 150px; /* Mismo ancho mínimo que los botones de actualizar */
@@ -144,7 +144,7 @@
 } 
 
 .content-container {
-    padding: 3.5rem; /* 80px del navbar + 40px del nav-tabs */
+    padding: 2rem; /* 80px del navbar + 40px del nav-tabs */
     width: 100%;
 }
 /* Dark mode styles */
