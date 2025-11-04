@@ -81,8 +81,10 @@ const OperacionesAFinix = ({ darkMode }) => {
                 if (data.status === 'success' && Array.isArray(data.data)) {
                     // Convertir las fechas al formato MM-DD
                     const feriadosFormateados = data.data.map(feriado => {
+                        // Normalizar la fecha a zona horaria local para evitar problemas con UTC
                         const fecha = new Date(feriado.date);
-                        const mesDia = `${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
+                        const fechaLocal = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+                        const mesDia = `${String(fechaLocal.getMonth() + 1).padStart(2, '0')}-${String(fechaLocal.getDate()).padStart(2, '0')}`;
                         console.log('Feriado convertido:', feriado.date, '->', mesDia);
                         return mesDia;
                     });
@@ -107,7 +109,9 @@ const OperacionesAFinix = ({ darkMode }) => {
 
     // Función para verificar si una fecha es feriado
     const esFeriado = useCallback((fecha) => {
-        const mesDia = `${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
+        // Normalizar la fecha a zona horaria local para evitar problemas con UTC
+        const fechaLocal = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+        const mesDia = `${String(fechaLocal.getMonth() + 1).padStart(2, '0')}-${String(fechaLocal.getDate()).padStart(2, '0')}`;
         return feriados.includes(mesDia);
     }, [feriados]);
 
