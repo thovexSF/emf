@@ -1005,7 +1005,7 @@ const OperacionesAFinix = ({ darkMode }) => {
                                                             <FontAwesomeIcon icon={faTrash} />
                                                         </button>
                                                     </>
-                                                ) : fila.esNuevaFila && (
+                                                ) : (
                                                     <>
                                                         <button
                                                             onClick={() => editarFila(index)}
