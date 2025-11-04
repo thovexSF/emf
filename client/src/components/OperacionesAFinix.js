@@ -81,12 +81,23 @@ const OperacionesAFinix = ({ darkMode }) => {
                 if (data.status === 'success' && Array.isArray(data.data)) {
                     // Convertir las fechas al formato MM-DD
                     const feriadosFormateados = data.data.map(feriado => {
-                        // Normalizar la fecha a zona horaria local para evitar problemas con UTC
-                        const fecha = new Date(feriado.date);
-                        const fechaLocal = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
-                        const mesDia = `${String(fechaLocal.getMonth() + 1).padStart(2, '0')}-${String(fechaLocal.getDate()).padStart(2, '0')}`;
-                        console.log('Feriado convertido:', feriado.date, '->', mesDia);
-                        return mesDia;
+                        // Parsear la fecha directamente del string para evitar problemas de zona horaria
+                        // El formato de la API es YYYY-MM-DD
+                        const partesFecha = feriado.date.split('-');
+                        if (partesFecha.length === 3) {
+                            const year = partesFecha[0];
+                            const month = partesFecha[1];
+                            const day = partesFecha[2];
+                            const mesDia = `${month}-${day}`;
+                            console.log('Feriado convertido:', feriado.date, '->', mesDia);
+                            return mesDia;
+                        } else {
+                            // Fallback: si no es formato YYYY-MM-DD, usar Date pero con UTC
+                            const fecha = new Date(feriado.date + 'T12:00:00Z'); // Usar mediodía UTC para evitar problemas
+                            const mesDia = `${String(fecha.getUTCMonth() + 1).padStart(2, '0')}-${String(fecha.getUTCDate()).padStart(2, '0')}`;
+                            console.log('Feriado convertido (fallback):', feriado.date, '->', mesDia);
+                            return mesDia;
+                        }
                     });
                     
                     console.log('Feriados formateados:', feriadosFormateados);
