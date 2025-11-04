@@ -309,8 +309,11 @@ const OperacionesAFinix = ({ darkMode }) => {
                     }
                     
                     // Calcular el monto como cantidad por precio
-                    const cantidad = parseFloat(fila.G?.replace(/\./g, '').replace(',', '.')) || 0;
-                    const precio = parseFloat(fila.H?.replace(/\./g, '').replace(',', '.')) || 0;
+                    // Convertir a string primero porque con raw: true pueden venir como números
+                    const cantidadStr = fila.G ? String(fila.G) : '0';
+                    const precioStr = fila.H ? String(fila.H) : '0';
+                    const cantidad = parseFloat(cantidadStr.replace(/\./g, '').replace(',', '.')) || 0;
+                    const precio = parseFloat(precioStr.replace(/\./g, '').replace(',', '.')) || 0;
                     const montoCalculado = (cantidad * precio).toLocaleString('es-CL', {
                         minimumFractionDigits: 1,
                         maximumFractionDigits: 4
