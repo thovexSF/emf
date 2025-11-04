@@ -563,6 +563,11 @@ const OperacionesAFinix = ({ darkMode }) => {
                     return parseFloat(value.toString().replace(/\./g, '').replace(',', '.')) || 0;
                 };
 
+                // Formatear fecha de pago como string para evitar problemas de zona horaria en Excel
+                const fechaPagoFormateada = fila['Fecha Pago'] instanceof Date 
+                    ? `${String(fila['Fecha Pago'].getDate()).padStart(2, '0')}-${String(fila['Fecha Pago'].getMonth() + 1).padStart(2, '0')}-${fila['Fecha Pago'].getFullYear()}`
+                    : fila['Fecha Pago'];
+
                 return {
                     Fecha: fila.Fecha,
                     Codigo: fila.Codigo,
@@ -575,7 +580,7 @@ const OperacionesAFinix = ({ darkMode }) => {
                     Abono: Math.round(parseNumber(fila.Abono)),
                     Cargo: Math.round(parseNumber(fila.Cargo)),
                     Saldo: fila.Saldo,
-                    'Fecha Pago': fila['Fecha Pago'],
+                    'Fecha Pago': fechaPagoFormateada,
                     Corredor: fila.Corredor.trim(),
                     Tipo: fila.Tipo.trim(),
                     '': '',
@@ -603,9 +608,15 @@ const OperacionesAFinix = ({ darkMode }) => {
                         
                         // Aplicar formatos específicos
                         if (R > 0) { // No aplicar formatos a la fila de encabezados
-                            if (C === 0) { // Columna de fecha
-                                hojaFIP[cell].z = 'dd-mm-yy';
-                                hojaFIP[cell].t = 'd';
+                            if (C === 0) { // Columna de fecha (Fecha original)
+                                // Si es un objeto Date, aplicar formato de fecha
+                                if (hojaFIP[cell].t === 'd' || hojaFIP[cell].t === 'n') {
+                                    hojaFIP[cell].z = 'dd-mm-yy';
+                                    hojaFIP[cell].t = 'd';
+                                }
+                            } else if (C === 11) { // Columna de Fecha Pago (ahora es string)
+                                // Forzar como texto para evitar problemas de zona horaria
+                                hojaFIP[cell].t = 's';
                             } else if (C === 3) { // Columna de cantidad
                                 hojaFIP[cell].t = 'n';
                                 hojaFIP[cell].z = '#,##0';
