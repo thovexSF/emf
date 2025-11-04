@@ -80,8 +80,8 @@ const OperacionesAFinix = ({ darkMode }) => {
                 
                 if (data.status === 'success' && Array.isArray(data.data)) {
                     // Convertir las fechas al formato MM-DD
+                    // Parsear directamente del string para evitar problemas de zona horaria
                     const feriadosFormateados = data.data.map(feriado => {
-                        // Parsear la fecha directamente del string para evitar problemas de zona horaria
                         // El formato de la API es YYYY-MM-DD
                         const partesFecha = feriado.date.split('-');
                         if (partesFecha.length === 3) {
@@ -91,8 +91,8 @@ const OperacionesAFinix = ({ darkMode }) => {
                             console.log('Feriado convertido:', feriado.date, '->', mesDia);
                             return mesDia;
                         } else {
-                            // Fallback: si no es formato YYYY-MM-DD, usar Date pero con UTC
-                            const fecha = new Date(feriado.date + 'T12:00:00Z'); // Usar mediodía UTC para evitar problemas
+                            // Fallback: usar Date pero con UTC
+                            const fecha = new Date(feriado.date + 'T12:00:00Z');
                             const mesDia = `${String(fecha.getUTCMonth() + 1).padStart(2, '0')}-${String(fecha.getUTCDate()).padStart(2, '0')}`;
                             console.log('Feriado convertido (fallback):', feriado.date, '->', mesDia);
                             return mesDia;
@@ -117,20 +117,9 @@ const OperacionesAFinix = ({ darkMode }) => {
         cargarFeriados();
     }, [cargarFeriados]);
 
-    // Forzar re-render cuando los feriados se cargan para recalcular fechas de pago
-    useEffect(() => {
-        if (feriados.length > 0 && datosEntrada) {
-            // Los feriados se cargaron, forzar re-render de la tabla
-            // Esto se hace automáticamente porque fechadepago depende de feriados
-            console.log('Feriados cargados, tabla debería recalcular fechas de pago');
-        }
-    }, [feriados, datosEntrada]);
-
     // Función para verificar si una fecha es feriado
     const esFeriado = useCallback((fecha) => {
-        // Normalizar la fecha a zona horaria local para evitar problemas con UTC
-        const fechaLocal = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
-        const mesDia = `${String(fechaLocal.getMonth() + 1).padStart(2, '0')}-${String(fechaLocal.getDate()).padStart(2, '0')}`;
+        const mesDia = `${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
         return feriados.includes(mesDia);
     }, [feriados]);
 
@@ -270,50 +259,13 @@ const OperacionesAFinix = ({ darkMode }) => {
 
                 const datosOrigen = XLSX.utils.sheet_to_json(worksheet, {
                     header: headers,
-                    raw: true, // Usar raw: true para obtener valores numéricos de fechas de Excel
-                    defval: '',
+                    raw: false,
                 });
 
                 const datosProcesados = datosOrigen.map(fila => {
-                    // Normalizar la fecha de entrada para evitar problemas de zona horaria
-                    let fechaNormalizada = fila.A;
-                    
-                    // Si la fecha es un número (serial de Excel), convertir a fecha
-                    if (typeof fila.A === 'number') {
-                        // Excel serial date: número de días desde 1900-01-01
-                        // Convertir a fecha sin usar zona horaria
-                        const excelEpoch = new Date(1899, 11, 30); // 30 de diciembre de 1899
-                        const fecha = new Date(excelEpoch.getTime() + fila.A * 86400000);
-                        // Extraer año, mes y día sin usar métodos que dependan de zona horaria
-                        const year = fecha.getUTCFullYear();
-                        const month = String(fecha.getUTCMonth() + 1).padStart(2, '0');
-                        const day = String(fecha.getUTCDate()).padStart(2, '0');
-                        fechaNormalizada = `${year}${month}${day}`;
-                    } else if (fila.A instanceof Date) {
-                        // Si la fecha es un objeto Date, usar UTC para evitar problemas de zona horaria
-                        const year = fila.A.getUTCFullYear();
-                        const month = String(fila.A.getUTCMonth() + 1).padStart(2, '0');
-                        const day = String(fila.A.getUTCDate()).padStart(2, '0');
-                        fechaNormalizada = `${year}${month}${day}`;
-                    } else if (typeof fila.A === 'string') {
-                        // Si es string, limpiar y normalizar a formato YYYYMMDD
-                        const fechaLimpia = fila.A.replace(/[^0-9]/g, '');
-                        if (fechaLimpia.length === 8) {
-                            fechaNormalizada = fechaLimpia;
-                        } else if (fechaLimpia.length === 6) {
-                            // Formato YYMMDD, convertir a YYYYMMDD
-                            const year = fechaLimpia.substring(0, 2);
-                            const fechaCompleta = (parseInt(year) > 50 ? '19' : '20') + fechaLimpia;
-                            fechaNormalizada = fechaCompleta;
-                        }
-                    }
-                    
                     // Calcular el monto como cantidad por precio
-                    // Convertir a string primero porque con raw: true pueden venir como números
-                    const cantidadStr = fila.G ? String(fila.G) : '0';
-                    const precioStr = fila.H ? String(fila.H) : '0';
-                    const cantidad = parseFloat(cantidadStr.replace(/\./g, '').replace(',', '.')) || 0;
-                    const precio = parseFloat(precioStr.replace(/\./g, '').replace(',', '.')) || 0;
+                    const cantidad = parseFloat(fila.G?.replace(/\./g, '').replace(',', '.')) || 0;
+                    const precio = parseFloat(fila.H?.replace(/\./g, '').replace(',', '.')) || 0;
                     const montoCalculado = (cantidad * precio).toLocaleString('es-CL', {
                         minimumFractionDigits: 1,
                         maximumFractionDigits: 4
@@ -323,11 +275,10 @@ const OperacionesAFinix = ({ darkMode }) => {
                     const tipoOperacion = fila.I?.trim() || '';
                     const condicion = getCondicion(tipoOperacion);
 
-                    console.log('Fecha original:', fila.A, 'Fecha normalizada:', fechaNormalizada); // Para debug
                     console.log('Tipo Operación:', tipoOperacion, 'Condición:', condicion); // Para debug
 
                     return {
-                        Fecha: fechaNormalizada,
+                        Fecha: fila.A,
                         Operacion: fila.B,
                         CodigoVende: fila.C,
                         CorredorVende: fila.D,
@@ -369,16 +320,11 @@ const OperacionesAFinix = ({ darkMode }) => {
                 setDatosEntrada(datosProcesados);
                 setFilasEditables(new Set());
                 setProcessingStatus('Archivo cargado exitosamente. Puede agregar filas y luego procesar.');
-                
-                // Asegurarse de que los feriados se carguen si no están cargados
-                if (feriados.length === 0) {
-                    cargarFeriados();
-                }
             };
 
             reader.readAsArrayBuffer(file);
         }
-    }, [feriados, cargarFeriados]);
+    }, []);
 
     const agregarNuevaFila = useCallback(() => {
         if (!datosEntrada || datosEntrada.length === 0) return;
@@ -611,11 +557,6 @@ const OperacionesAFinix = ({ darkMode }) => {
                     return parseFloat(value.toString().replace(/\./g, '').replace(',', '.')) || 0;
                 };
 
-                // Formatear fecha de pago como string para evitar problemas de zona horaria en Excel
-                const fechaPagoFormateada = fila['Fecha Pago'] instanceof Date 
-                    ? `${String(fila['Fecha Pago'].getDate()).padStart(2, '0')}-${String(fila['Fecha Pago'].getMonth() + 1).padStart(2, '0')}-${fila['Fecha Pago'].getFullYear()}`
-                    : fila['Fecha Pago'];
-
                 return {
                     Fecha: fila.Fecha,
                     Codigo: fila.Codigo,
@@ -628,7 +569,7 @@ const OperacionesAFinix = ({ darkMode }) => {
                     Abono: Math.round(parseNumber(fila.Abono)),
                     Cargo: Math.round(parseNumber(fila.Cargo)),
                     Saldo: fila.Saldo,
-                    'Fecha Pago': fechaPagoFormateada,
+                    'Fecha Pago': fila['Fecha Pago'],
                     Corredor: fila.Corredor.trim(),
                     Tipo: fila.Tipo.trim(),
                     '': '',
@@ -656,15 +597,9 @@ const OperacionesAFinix = ({ darkMode }) => {
                         
                         // Aplicar formatos específicos
                         if (R > 0) { // No aplicar formatos a la fila de encabezados
-                            if (C === 0) { // Columna de fecha (Fecha original)
-                                // Si es un objeto Date, aplicar formato de fecha
-                                if (hojaFIP[cell].t === 'd' || hojaFIP[cell].t === 'n') {
-                                    hojaFIP[cell].z = 'dd-mm-yy';
-                                    hojaFIP[cell].t = 'd';
-                                }
-                            } else if (C === 11) { // Columna de Fecha Pago (ahora es string)
-                                // Forzar como texto para evitar problemas de zona horaria
-                                hojaFIP[cell].t = 's';
+                            if (C === 0) { // Columna de fecha
+                                hojaFIP[cell].z = 'dd-mm-yy';
+                                hojaFIP[cell].t = 'd';
                             } else if (C === 3) { // Columna de cantidad
                                 hojaFIP[cell].t = 'n';
                                 hojaFIP[cell].z = '#,##0';
