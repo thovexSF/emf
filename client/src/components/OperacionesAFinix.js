@@ -113,7 +113,9 @@ const OperacionesAFinix = ({ darkMode }) => {
 
     // Función para obtener el siguiente día hábil
     const obtenerSiguienteDiaHabil = useCallback((fecha) => {
-        let fechaActual = new Date(fecha);
+        // Normalizar la fecha a zona horaria local
+        const fechaLocal = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+        let fechaActual = new Date(fechaLocal);
         fechaActual.setDate(fechaActual.getDate() + 1);
         
         while (fechaActual.getDay() === 0 || fechaActual.getDay() === 6 || esFeriado(fechaActual)) {
@@ -124,7 +126,10 @@ const OperacionesAFinix = ({ darkMode }) => {
     }, [esFeriado]);
 
     const fechadepago = useCallback((fecha, condicion) => {
-        let fechaPago = new Date(fecha);
+        // Normalizar la fecha a zona horaria local para evitar problemas con UTC
+        // Extraer año, mes y día y crear una fecha local
+        const fechaLocal = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+        let fechaPago = new Date(fechaLocal);
         
         switch (condicion) {
             case 'PM':
@@ -178,12 +183,13 @@ const OperacionesAFinix = ({ darkMode }) => {
             Monto,
             Condicion
         }) => {
-            // Extraer componentes de la fecha
+            // Extraer componentes de la fecha y crear fecha en zona horaria local
             const year = Fecha.substring(0, 4) || '';
             const month = Fecha.substring(4, 6) || '';
             const day = Fecha.substring(6, 8) || '';
             
-            const fecha = new Date(`${year}-${month}-${day}T20:00:00.000Z`);
+            // Crear fecha en zona horaria local para evitar problemas con UTC
+            const fecha = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
             const fechaPago = fechadepago(fecha, Condicion);
             
             const esCompra = Compra === "832";
