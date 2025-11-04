@@ -260,18 +260,30 @@ const OperacionesAFinix = ({ darkMode }) => {
 
                 const datosOrigen = XLSX.utils.sheet_to_json(worksheet, {
                     header: headers,
-                    raw: false,
+                    raw: true, // Usar raw: true para obtener valores numéricos de fechas de Excel
+                    defval: '',
                 });
 
                 const datosProcesados = datosOrigen.map(fila => {
                     // Normalizar la fecha de entrada para evitar problemas de zona horaria
                     let fechaNormalizada = fila.A;
                     
-                    // Si la fecha es un objeto Date, extraer solo año, mes y día
-                    if (fila.A instanceof Date) {
-                        const year = fila.A.getFullYear();
-                        const month = String(fila.A.getMonth() + 1).padStart(2, '0');
-                        const day = String(fila.A.getDate()).padStart(2, '0');
+                    // Si la fecha es un número (serial de Excel), convertir a fecha
+                    if (typeof fila.A === 'number') {
+                        // Excel serial date: número de días desde 1900-01-01
+                        // Convertir a fecha sin usar zona horaria
+                        const excelEpoch = new Date(1899, 11, 30); // 30 de diciembre de 1899
+                        const fecha = new Date(excelEpoch.getTime() + fila.A * 86400000);
+                        // Extraer año, mes y día sin usar métodos que dependan de zona horaria
+                        const year = fecha.getUTCFullYear();
+                        const month = String(fecha.getUTCMonth() + 1).padStart(2, '0');
+                        const day = String(fecha.getUTCDate()).padStart(2, '0');
+                        fechaNormalizada = `${year}${month}${day}`;
+                    } else if (fila.A instanceof Date) {
+                        // Si la fecha es un objeto Date, usar UTC para evitar problemas de zona horaria
+                        const year = fila.A.getUTCFullYear();
+                        const month = String(fila.A.getUTCMonth() + 1).padStart(2, '0');
+                        const day = String(fila.A.getUTCDate()).padStart(2, '0');
                         fechaNormalizada = `${year}${month}${day}`;
                     } else if (typeof fila.A === 'string') {
                         // Si es string, limpiar y normalizar a formato YYYYMMDD
