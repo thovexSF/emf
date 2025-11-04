@@ -85,7 +85,6 @@ const OperacionesAFinix = ({ darkMode }) => {
                         // El formato de la API es YYYY-MM-DD
                         const partesFecha = feriado.date.split('-');
                         if (partesFecha.length === 3) {
-                            const year = partesFecha[0];
                             const month = partesFecha[1];
                             const day = partesFecha[2];
                             const mesDia = `${month}-${day}`;
