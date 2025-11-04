@@ -103,6 +103,15 @@
     height: 40px;
 }
 
+/* Permitir que los nombres de corredores se muestren completos */
+.operaciones-finix-data-table td:nth-child(7), /* Corredor Vende */
+.operaciones-finix-data-table td:nth-child(8) { /* Corredor Compra */
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-wrap: break-word;
+}
+
 /* Alineación a la derecha para columnas numéricas */
 .operaciones-finix-data-table td:nth-child(4), /* Cantidad */
 .operaciones-finix-data-table td:nth-child(5), /* Precio */
@@ -150,8 +159,8 @@
 .operaciones-finix-data-table th:nth-child(4) { width: 100px; } /* Cantidad */
 .operaciones-finix-data-table th:nth-child(5) { width: 100px; } /* Precio */
 .operaciones-finix-data-table th:nth-child(6) { width: 120px; } /* Monto */
-.operaciones-finix-data-table th:nth-child(7) { width: 180px; } /* Corredor Vende */
-.operaciones-finix-data-table th:nth-child(8) { width: 180px; } /* Corredor Compra */
+.operaciones-finix-data-table th:nth-child(7) { width: 200px; } /* Corredor Vende */
+.operaciones-finix-data-table th:nth-child(8) { width: 200px; } /* Corredor Compra */
 .operaciones-finix-data-table th:nth-child(9) { width: 100px; } /* Condición */
 .operaciones-finix-data-table th:nth-child(10) { width: 100px; } /* Tipo Operación */
 .operaciones-finix-data-table th:nth-child(11) { width: 120px; } /* Fecha Pago */
