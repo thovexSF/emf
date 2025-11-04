@@ -107,6 +107,15 @@ const OperacionesAFinix = ({ darkMode }) => {
         cargarFeriados();
     }, [cargarFeriados]);
 
+    // Forzar re-render cuando los feriados se cargan para recalcular fechas de pago
+    useEffect(() => {
+        if (feriados.length > 0 && datosEntrada) {
+            // Los feriados se cargaron, forzar re-render de la tabla
+            // Esto se hace automáticamente porque fechadepago depende de feriados
+            console.log('Feriados cargados, tabla debería recalcular fechas de pago');
+        }
+    }, [feriados, datosEntrada]);
+
     // Función para verificar si una fecha es feriado
     const esFeriado = useCallback((fecha) => {
         // Normalizar la fecha a zona horaria local para evitar problemas con UTC
@@ -312,11 +321,16 @@ const OperacionesAFinix = ({ darkMode }) => {
                 setDatosEntrada(datosProcesados);
                 setFilasEditables(new Set());
                 setProcessingStatus('Archivo cargado exitosamente. Puede agregar filas y luego procesar.');
+                
+                // Asegurarse de que los feriados se carguen si no están cargados
+                if (feriados.length === 0) {
+                    cargarFeriados();
+                }
             };
 
             reader.readAsArrayBuffer(file);
         }
-    }, []);
+    }, [feriados, cargarFeriados]);
 
     const agregarNuevaFila = useCallback(() => {
         if (!datosEntrada || datosEntrada.length === 0) return;
