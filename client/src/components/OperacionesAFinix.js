@@ -264,6 +264,28 @@ const OperacionesAFinix = ({ darkMode }) => {
                 });
 
                 const datosProcesados = datosOrigen.map(fila => {
+                    // Normalizar la fecha de entrada para evitar problemas de zona horaria
+                    let fechaNormalizada = fila.A;
+                    
+                    // Si la fecha es un objeto Date, extraer solo año, mes y día
+                    if (fila.A instanceof Date) {
+                        const year = fila.A.getFullYear();
+                        const month = String(fila.A.getMonth() + 1).padStart(2, '0');
+                        const day = String(fila.A.getDate()).padStart(2, '0');
+                        fechaNormalizada = `${year}${month}${day}`;
+                    } else if (typeof fila.A === 'string') {
+                        // Si es string, limpiar y normalizar a formato YYYYMMDD
+                        const fechaLimpia = fila.A.replace(/[^0-9]/g, '');
+                        if (fechaLimpia.length === 8) {
+                            fechaNormalizada = fechaLimpia;
+                        } else if (fechaLimpia.length === 6) {
+                            // Formato YYMMDD, convertir a YYYYMMDD
+                            const year = fechaLimpia.substring(0, 2);
+                            const fechaCompleta = (parseInt(year) > 50 ? '19' : '20') + fechaLimpia;
+                            fechaNormalizada = fechaCompleta;
+                        }
+                    }
+                    
                     // Calcular el monto como cantidad por precio
                     const cantidad = parseFloat(fila.G?.replace(/\./g, '').replace(',', '.')) || 0;
                     const precio = parseFloat(fila.H?.replace(/\./g, '').replace(',', '.')) || 0;
@@ -276,10 +298,11 @@ const OperacionesAFinix = ({ darkMode }) => {
                     const tipoOperacion = fila.I?.trim() || '';
                     const condicion = getCondicion(tipoOperacion);
 
+                    console.log('Fecha original:', fila.A, 'Fecha normalizada:', fechaNormalizada); // Para debug
                     console.log('Tipo Operación:', tipoOperacion, 'Condición:', condicion); // Para debug
 
                     return {
-                        Fecha: fila.A,
+                        Fecha: fechaNormalizada,
                         Operacion: fila.B,
                         CodigoVende: fila.C,
                         CorredorVende: fila.D,
