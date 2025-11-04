@@ -557,6 +557,17 @@ const OperacionesAFinix = ({ darkMode }) => {
                     return parseFloat(value.toString().replace(/\./g, '').replace(',', '.')) || 0;
                 };
 
+                // Formatear fecha de pago como DD-MM-YYYY
+                let fechaPagoFormateada = '';
+                if (fila['Fecha Pago'] instanceof Date) {
+                    const day = String(fila['Fecha Pago'].getDate()).padStart(2, '0');
+                    const month = String(fila['Fecha Pago'].getMonth() + 1).padStart(2, '0');
+                    const year = fila['Fecha Pago'].getFullYear();
+                    fechaPagoFormateada = `${day}-${month}-${year}`;
+                } else if (fila['Fecha Pago']) {
+                    fechaPagoFormateada = String(fila['Fecha Pago']);
+                }
+
                 return {
                     Fecha: fila.Fecha,
                     Codigo: fila.Codigo,
@@ -569,7 +580,7 @@ const OperacionesAFinix = ({ darkMode }) => {
                     Abono: Math.round(parseNumber(fila.Abono)),
                     Cargo: Math.round(parseNumber(fila.Cargo)),
                     Saldo: fila.Saldo,
-                    'Fecha Pago': fila['Fecha Pago'],
+                    'Fecha Pago': fechaPagoFormateada,
                     Corredor: fila.Corredor.trim(),
                     Tipo: fila.Tipo.trim(),
                     '': '',
@@ -597,9 +608,14 @@ const OperacionesAFinix = ({ darkMode }) => {
                         
                         // Aplicar formatos específicos
                         if (R > 0) { // No aplicar formatos a la fila de encabezados
-                            if (C === 0) { // Columna de fecha
-                                hojaFIP[cell].z = 'dd-mm-yy';
-                                hojaFIP[cell].t = 'd';
+                            if (C === 0) { // Columna de fecha (Fecha original)
+                                if (hojaFIP[cell].t === 'd' || hojaFIP[cell].t === 'n') {
+                                    hojaFIP[cell].z = 'dd-mm-yyyy';
+                                    hojaFIP[cell].t = 'd';
+                                }
+                            } else if (C === 11) { // Columna de Fecha Pago (ya formateada como string DD-MM-YYYY)
+                                // Mantener como texto para conservar el formato DD-MM-YYYY
+                                hojaFIP[cell].t = 's';
                             } else if (C === 3) { // Columna de cantidad
                                 hojaFIP[cell].t = 'n';
                                 hojaFIP[cell].z = '#,##0';
