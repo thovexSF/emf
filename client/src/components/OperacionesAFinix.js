@@ -207,8 +207,12 @@ const OperacionesAFinix = ({ darkMode }) => {
             const esCompra = Compra === "832";
             const monto = Monto || '0';
 
-            const corredorVendeNombre = corredores.find(c => c.codigo === CorredorVende)?.nombre?.trim() || CorredorVende;
-            const corredorCompraNombre = corredores.find(c => c.codigo === CorredorCompra)?.nombre?.trim() || CorredorCompra;
+            // Convertir códigos a números para comparar correctamente
+            const codigoVendeNum = parseInt(CodigoVende) || 0;
+            const codigoCompraNum = parseInt(CodigoCompra) || 0;
+            
+            const corredorVendeNombre = corredores.find(c => c.codigo === codigoVendeNum)?.nombre?.trim() || CorredorVende;
+            const corredorCompraNombre = corredores.find(c => c.codigo === codigoCompraNum)?.nombre?.trim() || CorredorCompra;
 
             return {
                 Fecha: fecha,
