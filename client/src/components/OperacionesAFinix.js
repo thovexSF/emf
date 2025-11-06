@@ -845,36 +845,12 @@ const OperacionesAFinix = ({ darkMode }) => {
                                     const fechaPago = fechadepago(fechaBase, fila.Condicion);
                                     const fechaPagoFormateada = fechaPago ? `${fechaPago.getDate().toString().padStart(2, '0')}-${(fechaPago.getMonth() + 1).toString().padStart(2, '0')}-${fechaPago.getFullYear()}` : '';
 
-                                    // Mapear nombres de corredores usando el código
+                                    // Mapear nombres de corredores usando el código (misma lógica que en mapearATablaDestino)
                                     const codigoVendeNum = parseInt(fila.CodigoVende) || 0;
                                     const codigoCompraNum = parseInt(fila.CodigoCompra) || 0;
                                     
-                                    // Buscar por código primero
-                                    let corredorVendeMapeado = corredores.find(c => c.codigo === codigoVendeNum)?.nombre?.trim();
-                                    let corredorCompraMapeado = corredores.find(c => c.codigo === codigoCompraNum)?.nombre?.trim();
-                                    
-                                    // Si no se encuentra por código, buscar por nombre parcial (para casos como "LARRA" -> "LARRAIN VIAL")
-                                    if (!corredorVendeMapeado && fila.CorredorVende) {
-                                        const nombreLimpio = fila.CorredorVende.trim().toUpperCase();
-                                        // Buscar si algún nombre del array contiene el nombre del CSV (ej: "LARRAIN VIAL" contiene "LARRA")
-                                        const corredorEncontrado = corredores.find(c => 
-                                            c.nombre.toUpperCase().includes(nombreLimpio)
-                                        );
-                                        corredorVendeMapeado = corredorEncontrado?.nombre?.trim() || fila.CorredorVende;
-                                    } else if (!corredorVendeMapeado) {
-                                        corredorVendeMapeado = fila.CorredorVende;
-                                    }
-                                    
-                                    if (!corredorCompraMapeado && fila.CorredorCompra) {
-                                        const nombreLimpio = fila.CorredorCompra.trim().toUpperCase();
-                                        // Buscar si algún nombre del array contiene el nombre del CSV (ej: "LARRAIN VIAL" contiene "LARRA")
-                                        const corredorEncontrado = corredores.find(c => 
-                                            c.nombre.toUpperCase().includes(nombreLimpio)
-                                        );
-                                        corredorCompraMapeado = corredorEncontrado?.nombre?.trim() || fila.CorredorCompra;
-                                    } else if (!corredorCompraMapeado) {
-                                        corredorCompraMapeado = fila.CorredorCompra;
-                                    }
+                                    const corredorVendeMapeado = corredores.find(c => c.codigo === codigoVendeNum)?.nombre?.trim() || fila.CorredorVende;
+                                    const corredorCompraMapeado = corredores.find(c => c.codigo === codigoCompraNum)?.nombre?.trim() || fila.CorredorCompra;
 
                                     return (
                                         <tr key={index} className={`${filasCompletadas.has(index) ? 'fila-completada' : ''} ${fila.esNuevaFila ? 'fila-nueva' : ''}`}>
