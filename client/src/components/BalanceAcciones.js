@@ -70,7 +70,6 @@ const BalanceAcciones = ({ darkMode }) => {
             
             const response = await fetch(`${API_URL}/balance-acciones`);
             if (!response.ok) {
-                const errorText = await response.text();
                 throw new Error(`Error al cargar el balance: ${response.status} ${response.statusText}`);
             }
             
