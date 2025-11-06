@@ -140,10 +140,6 @@ const BalanceAcciones = ({ darkMode }) => {
     }, []);
 
     const eliminarArchivo = useCallback(async (id, nombreArchivo, event) => {
-        // Obtener posición del botón para mostrar el diálogo cerca
-        const buttonRect = event?.currentTarget?.getBoundingClientRect();
-        const containerRect = event?.currentTarget?.closest('.balance-historial-section')?.getBoundingClientRect();
-        
         // Mostrar diálogo de confirmación personalizado
         setConfirmDialog({
             mensaje: `¿Estás seguro de que quieres eliminar el archivo "${nombreArchivo}" y todas sus operaciones relacionadas?`,
@@ -497,7 +493,6 @@ const BalanceAcciones = ({ darkMode }) => {
                         // Limpiar cualquier carácter no alfanumérico al final
                         Nemotecnico = Nemotecnico.replace(/[^A-Za-z0-9]+$/, '').trim();
                         const Compra = fila.S || '0';
-                        const Venta = fila.R || '0';
                         const Monto = (parseFloat(String(Cantidad).replace(/\./g, '').replace(',', '.')) || 0) * 
                                      (parseFloat(String(Precio).replace(/\./g, '').replace(',', '.')) || 0);
 
