@@ -845,6 +845,12 @@ const OperacionesAFinix = ({ darkMode }) => {
                                     const fechaPago = fechadepago(fechaBase, fila.Condicion);
                                     const fechaPagoFormateada = fechaPago ? `${fechaPago.getDate().toString().padStart(2, '0')}-${(fechaPago.getMonth() + 1).toString().padStart(2, '0')}-${fechaPago.getFullYear()}` : '';
 
+                                    // Mapear nombres de corredores usando el código
+                                    const codigoVendeNum = parseInt(fila.CodigoVende) || 0;
+                                    const codigoCompraNum = parseInt(fila.CodigoCompra) || 0;
+                                    const corredorVendeMapeado = corredores.find(c => c.codigo === codigoVendeNum)?.nombre?.trim() || fila.CorredorVende;
+                                    const corredorCompraMapeado = corredores.find(c => c.codigo === codigoCompraNum)?.nombre?.trim() || fila.CorredorCompra;
+
                                     return (
                                         <tr key={index} className={`${filasCompletadas.has(index) ? 'fila-completada' : ''} ${fila.esNuevaFila ? 'fila-nueva' : ''}`}>
                                             <td>
@@ -971,7 +977,7 @@ const OperacionesAFinix = ({ darkMode }) => {
                                                         ))}
                                                     </select>
                                                 ) : (
-                                                    fila.CorredorVende
+                                                    corredorVendeMapeado
                                                 )}
                                             </td>
                                             <td>
@@ -989,7 +995,7 @@ const OperacionesAFinix = ({ darkMode }) => {
                                                         ))}
                                                     </select>
                                                 ) : (
-                                                    fila.CorredorCompra
+                                                    corredorCompraMapeado
                                                 )}
                                             </td>
                                             <td>
