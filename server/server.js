@@ -29,9 +29,21 @@ const PORT = process.env.PORT || 3000;
 
 // CORS configuration - Aplicar CORS antes que cualquier otro middleware
 app.use(cors({
-    origin: process.env.NODE_ENV === 'production' 
-        ? process.env.RAILWAY_PUBLIC_DOMAIN || 'http://localhost:3001'
-        : 'http://localhost:3001',
+    origin: function (origin, callback) {
+        // En producción, permitir el mismo dominio (cuando cliente y servidor están juntos)
+        // o el dominio de Railway si está configurado
+        if (process.env.NODE_ENV === 'production') {
+            // Permitir requests sin origin (mismo dominio) o desde Railway
+            if (!origin || origin.includes('railway.app') || origin === process.env.RAILWAY_PUBLIC_DOMAIN) {
+                callback(null, true);
+            } else {
+                callback(null, true); // Permitir todos en producción por ahora
+            }
+        } else {
+            // En desarrollo, permitir localhost
+            callback(null, true);
+        }
+    },
     methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['Content-Disposition'], // Exponer Content-Disposition para que el frontend pueda leerlo
