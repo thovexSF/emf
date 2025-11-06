@@ -812,7 +812,7 @@ const OperacionesAFinix = ({ darkMode }) => {
                             className={`operaciones-finix-process-button ${descargaExitosa ? 'success' : ''}`}
                         >
                             <FontAwesomeIcon icon={faFileExcel} />
-                            {descargaExitosa ? 'Descarga Exitosa' : 'Procesar Archivo'}
+                            {descargaExitosa ? 'Descarga Exitosa' : 'Descargar Excel'}
                         </button>
                     </div>
 
