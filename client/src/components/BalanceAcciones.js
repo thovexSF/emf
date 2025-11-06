@@ -70,8 +70,21 @@ const BalanceAcciones = ({ darkMode }) => {
             
             const response = await fetch(`${API_URL}/balance-acciones`);
             if (!response.ok) {
-                throw new Error('Error al cargar el balance');
+                const errorText = await response.text();
+                throw new Error(`Error al cargar el balance: ${response.status} ${response.statusText}`);
             }
+            
+            // Verificar que la respuesta sea JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                // Si recibimos HTML, puede ser que Railway esté desplegando o hay un error
+                if (text.includes('<!doctype') || text.includes('<html')) {
+                    throw new Error(`El servidor está devolviendo HTML en lugar de JSON. Esto puede ocurrir durante el despliegue en Railway. Por favor, espera unos momentos y recarga la página.`);
+                }
+                throw new Error(`El servidor devolvió un formato inesperado. Content-Type: ${contentType}`);
+            }
+            
             const result = await response.json();
             
             // Manejar nuevo formato con balance y nemotecnicosNeteados, o formato antiguo
@@ -113,7 +126,14 @@ const BalanceAcciones = ({ darkMode }) => {
                 actualizarFilasModificadas(modificadas);
             }
         } catch (err) {
-            setError(err.message);
+            let errorMessage = err.message;
+            
+            // Detectar si el error es por respuesta HTML en lugar de JSON
+            if (err.message.includes('Unexpected token') || err.message.includes('<!doctype') || err.message.includes('HTML')) {
+                errorMessage = `Error de conexión: El servidor no está respondiendo correctamente. Verifica que el servidor esté corriendo en ${API_URL.replace('/api', '')}. Si estás en producción, verifica la configuración de la API.`;
+            }
+            
+            setError(errorMessage);
             console.error('Error al cargar balance:', err);
         } finally {
             setLoading(false);
