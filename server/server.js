@@ -394,27 +394,6 @@ app.get('/api/test-scraper', async (req, res) => {
     }
 });
 
-// Serve static files only in production
-if (process.env.NODE_ENV === 'production') {
-    const buildPath = path.join(__dirname, '../client/build');
-    if (fs.existsSync(buildPath)) {
-        // Serve static files from the React app
-        app.use(express.static(buildPath));
-
-        // Handle React routing, return all requests to React app
-        app.get('*', (req, res) => {
-            res.sendFile(path.join(buildPath, 'index.html'));
-        });
-    } else {
-        console.warn('React build directory not found. Skipping static file serving.');
-    }
-} else {
-    // In development, just serve the API
-    app.get('/', (req, res) => {
-        res.send('API Server running in development mode. Frontend should be running on port 3001.');
-    });
-}
-
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);
@@ -851,6 +830,32 @@ app.post('/api/migrate-numeric-types', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+// Serve static files only in production - DEBE estar después de todas las rutas de API
+if (process.env.NODE_ENV === 'production') {
+    const buildPath = path.join(__dirname, '../client/build');
+    if (fs.existsSync(buildPath)) {
+        // Serve static files from the React app
+        app.use(express.static(buildPath));
+
+        // Handle React routing, return all requests to React app
+        // IMPORTANTE: Solo capturar rutas que NO empiecen con /api
+        app.get('*', (req, res) => {
+            // Si la ruta empieza con /api, no debería llegar aquí (debería haber sido manejada antes)
+            if (req.path.startsWith('/api')) {
+                return res.status(404).json({ error: 'API endpoint not found' });
+            }
+            res.sendFile(path.join(buildPath, 'index.html'));
+        });
+    } else {
+        console.warn('React build directory not found. Skipping static file serving.');
+    }
+} else {
+    // In development, just serve the API
+    app.get('/', (req, res) => {
+        res.send('API Server running in development mode. Frontend should be running on port 3001.');
+    });
+}
 
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
