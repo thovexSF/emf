@@ -856,9 +856,9 @@ const OperacionesAFinix = ({ darkMode }) => {
                                     // Si no se encuentra por código, buscar por nombre parcial (para casos como "LARRA" -> "LARRAIN VIAL")
                                     if (!corredorVendeMapeado && fila.CorredorVende) {
                                         const nombreLimpio = fila.CorredorVende.trim().toUpperCase();
+                                        // Buscar si algún nombre del array contiene el nombre del CSV (ej: "LARRAIN VIAL" contiene "LARRA")
                                         const corredorEncontrado = corredores.find(c => 
-                                            c.nombre.toUpperCase().includes(nombreLimpio) || 
-                                            nombreLimpio.includes(c.nombre.toUpperCase().substring(0, nombreLimpio.length))
+                                            c.nombre.toUpperCase().includes(nombreLimpio)
                                         );
                                         corredorVendeMapeado = corredorEncontrado?.nombre?.trim() || fila.CorredorVende;
                                     } else if (!corredorVendeMapeado) {
@@ -867,9 +867,9 @@ const OperacionesAFinix = ({ darkMode }) => {
                                     
                                     if (!corredorCompraMapeado && fila.CorredorCompra) {
                                         const nombreLimpio = fila.CorredorCompra.trim().toUpperCase();
+                                        // Buscar si algún nombre del array contiene el nombre del CSV (ej: "LARRAIN VIAL" contiene "LARRA")
                                         const corredorEncontrado = corredores.find(c => 
-                                            c.nombre.toUpperCase().includes(nombreLimpio) || 
-                                            nombreLimpio.includes(c.nombre.toUpperCase().substring(0, nombreLimpio.length))
+                                            c.nombre.toUpperCase().includes(nombreLimpio)
                                         );
                                         corredorCompraMapeado = corredorEncontrado?.nombre?.trim() || fila.CorredorCompra;
                                     } else if (!corredorCompraMapeado) {
