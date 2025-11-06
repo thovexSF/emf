@@ -12,7 +12,8 @@ const express = require('express');
 const cors = require('cors');
 const cron = require('node-cron');
 const rateLimit = require('express-rate-limit');
-const { pool, updateDataAndSave, updateSpecificDate, downloadExcel, updateDataAndSaveForced, updateDataFromDate, removeHolidaysFromDatabase, getChileanHolidays } = require('./aportesyrescates.js');
+const multer = require('multer');
+const { pool, updateDataAndSave, updateSpecificDate, downloadExcel, updateDataAndSaveForced, updateDataFromDate, removeHolidaysFromDatabase, getChileanHolidays, saveOperacionesAcciones, getBalanceAcciones, procesarBalanceBase, getHistorialArchivos, eliminarArchivoHistorial } = require('./aportesyrescates.js');
 const path = require('path');
 const { addHours, format } = require('date-fns');
 const fs = require('fs');
@@ -31,8 +32,9 @@ app.use(cors({
     origin: process.env.NODE_ENV === 'production' 
         ? process.env.RAILWAY_PUBLIC_DOMAIN || 'http://localhost:3001'
         : 'http://localhost:3001',
-    methods: ['GET', 'POST', 'OPTIONS'],
+    methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Content-Disposition'], // Exponer Content-Disposition para que el frontend pueda leerlo
     credentials: true
 }));
 
@@ -42,8 +44,15 @@ const limiter = rateLimit({
     max: 100 // limit each IP to 100 requests per windowMs
 });
 
+// Configuración de multer para subir archivos
+const upload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 } // 10MB
+});
+
 // Middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(limiter);
 
 // API Routes
@@ -398,6 +407,437 @@ if (process.env.NODE_ENV === 'production') {
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).json({ error: 'Something broke!' });
+});
+
+// Endpoint para guardar operaciones de acciones (con archivo)
+app.post('/api/save-operaciones', upload.single('archivo'), async (req, res) => {
+    try {
+        // Parsear operaciones desde JSON string si viene en FormData
+        let operaciones, nombreArchivo;
+        if (req.body.operaciones) {
+            operaciones = typeof req.body.operaciones === 'string' 
+                ? JSON.parse(req.body.operaciones) 
+                : req.body.operaciones;
+            nombreArchivo = req.body.nombreArchivo;
+        } else {
+            // Si viene como JSON directo (compatibilidad)
+            operaciones = req.body.operaciones;
+            nombreArchivo = req.body.nombreArchivo;
+        }
+        
+        if (!Array.isArray(operaciones)) {
+            return res.status(400).json({ error: 'Las operaciones deben ser un array' });
+        }
+        
+        // Obtener el buffer del archivo si está presente
+        const archivoBuffer = req.file ? req.file.buffer : null;
+        
+        const result = await saveOperacionesAcciones(operaciones, 'csv', nombreArchivo || null, archivoBuffer);
+        res.json(result);
+    } catch (error) {
+        console.error('Error al guardar operaciones:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint para obtener balance de acciones
+app.get('/api/balance-acciones', async (req, res) => {
+    try {
+        const result = await getBalanceAcciones();
+        // Si el resultado tiene la nueva estructura con balance y nemotecnicosNeteados
+        if (result.balance && result.nemotecnicosNeteados !== undefined) {
+            res.json(result);
+        } else {
+            // Compatibilidad con formato anterior
+            res.json({
+                balance: result,
+                nemotecnicosNeteados: []
+            });
+        }
+    } catch (error) {
+        console.error('Error al obtener balance:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint para subir balance base desde Excel
+app.post('/api/upload-balance-base', upload.single('archivo'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No se recibió ningún archivo' });
+        }
+        
+        const nombreArchivo = req.file.originalname || 'balance_base.xlsx';
+        const result = await procesarBalanceBase(req.file.buffer, nombreArchivo);
+        res.json(result);
+    } catch (error) {
+        console.error('Error al procesar balance base:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint para obtener historial de archivos
+app.get('/api/historial-archivos', async (req, res) => {
+    try {
+        const historial = await getHistorialArchivos();
+        res.json(historial);
+    } catch (error) {
+        console.error('Error al obtener historial:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint para eliminar un archivo del historial y sus operaciones
+app.delete('/api/historial-archivos/:id', async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) {
+            return res.status(400).json({ error: 'ID inválido' });
+        }
+        
+        const result = await eliminarArchivoHistorial(id);
+        res.json(result);
+    } catch (error) {
+        console.error('Error al eliminar archivo del historial:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint para actualizar precio de cierre
+app.post('/api/actualizar-precio-cierre', async (req, res) => {
+    try {
+        const { nemotecnico, precioCierre } = req.body;
+        
+        if (!nemotecnico || precioCierre === undefined || precioCierre === null) {
+            return res.status(400).json({ error: 'Faltan parámetros requeridos: nemotecnico y precioCierre' });
+        }
+        
+        // Actualizar el precio de cierre de todas las operaciones de este nemotécnico
+        // que tienen precio_cierre NULL o que sean las más recientes
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            
+            // Actualizar precio_cierre en todas las operaciones del nemotécnico que sean de tipo Compra
+            // y que tengan precio_cierre NULL (para mantener consistencia)
+            const updateResult = await client.query(`
+                UPDATE operaciones_acciones 
+                SET precio_cierre = $1
+                WHERE nemotecnico = $2 
+                  AND tipo_operacion = 'Compra'
+                  AND (precio_cierre IS NULL OR precio_cierre = 0)
+            `, [precioCierre, nemotecnico.toUpperCase()]);
+            
+            await client.query('COMMIT');
+            
+            res.json({ 
+                success: true, 
+                operacionesActualizadas: updateResult.rowCount,
+                nemotecnico: nemotecnico.toUpperCase(),
+                precioCierre: precioCierre
+            });
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+    } catch (error) {
+        console.error('Error al actualizar precio de cierre:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint para actualizar todos los campos de una fila del balance
+app.post('/api/actualizar-fila-balance', async (req, res) => {
+    try {
+        const { nemotecnico, existencia, precioCompra, precioCierre } = req.body;
+        
+        if (!nemotecnico) {
+            return res.status(400).json({ error: 'Faltan parámetros requeridos: nemotecnico' });
+        }
+        
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            
+            // Crear tabla de ajustes manuales si no existe
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS ajustes_manuales_balance (
+                    id SERIAL PRIMARY KEY,
+                    nemotecnico VARCHAR(20) NOT NULL UNIQUE,
+                    existencia NUMERIC(18, 3),
+                    precio_compra NUMERIC(18, 2),
+                    precio_cierre NUMERIC(18, 2),
+                    valorizacion_compra NUMERIC(18, 2),
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+            
+            // Actualizar o insertar ajuste manual (sin valorizacion_compra porque es calculado)
+            await client.query(`
+                INSERT INTO ajustes_manuales_balance 
+                (nemotecnico, existencia, precio_compra, precio_cierre)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (nemotecnico) 
+                DO UPDATE SET
+                    existencia = COALESCE(EXCLUDED.existencia, ajustes_manuales_balance.existencia),
+                    precio_compra = COALESCE(EXCLUDED.precio_compra, ajustes_manuales_balance.precio_compra),
+                    precio_cierre = COALESCE(EXCLUDED.precio_cierre, ajustes_manuales_balance.precio_cierre),
+                    updated_at = CURRENT_TIMESTAMP
+            `, [
+                nemotecnico.toUpperCase(),
+                existencia !== undefined ? existencia : null,
+                precioCompra !== undefined ? precioCompra : null,
+                precioCierre !== undefined ? precioCierre : null
+            ]);
+            
+            // También actualizar precio_cierre en operaciones_acciones si se proporciona
+            if (precioCierre !== undefined && precioCierre !== null) {
+                await client.query(`
+                    UPDATE operaciones_acciones 
+                    SET precio_cierre = $1
+                    WHERE nemotecnico = $2 
+                      AND tipo_operacion = 'Compra'
+                      AND (precio_cierre IS NULL OR precio_cierre = 0)
+                `, [precioCierre, nemotecnico.toUpperCase()]);
+            }
+            
+            await client.query('COMMIT');
+            
+            res.json({ 
+                success: true,
+                nemotecnico: nemotecnico.toUpperCase()
+            });
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+    } catch (error) {
+        console.error('Error al actualizar fila del balance:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint para eliminar un ajuste manual del balance
+app.delete('/api/ajuste-manual-balance/:nemotecnico', async (req, res) => {
+    try {
+        const { nemotecnico } = req.params;
+        
+        if (!nemotecnico) {
+            return res.status(400).json({ error: 'Falta el parámetro nemotecnico' });
+        }
+        
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            
+            // Verificar si existe el ajuste manual
+            const checkResult = await client.query(
+                'SELECT id FROM ajustes_manuales_balance WHERE nemotecnico = $1',
+                [nemotecnico.toUpperCase()]
+            );
+            
+            if (checkResult.rows.length === 0) {
+                await client.query('ROLLBACK');
+                return res.status(404).json({ error: 'No se encontró un ajuste manual para este nemotécnico' });
+            }
+            
+            // Eliminar el ajuste manual
+            await client.query(
+                'DELETE FROM ajustes_manuales_balance WHERE nemotecnico = $1',
+                [nemotecnico.toUpperCase()]
+            );
+            
+            await client.query('COMMIT');
+            
+            res.json({ 
+                success: true,
+                nemotecnico: nemotecnico.toUpperCase(),
+                message: 'Ajuste manual eliminado exitosamente'
+            });
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+    } catch (error) {
+        console.error('Error al eliminar ajuste manual:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint para descargar CSV transformado a FINIX
+app.get('/api/descargar-csv-transformado/:id', async (req, res) => {
+    try {
+        const historialId = parseInt(req.params.id);
+        if (isNaN(historialId)) {
+            return res.status(400).json({ error: 'ID de historial inválido' });
+        }
+
+        const { generarExcelTransformado } = require('./aportesyrescates');
+        const excelBuffer = await generarExcelTransformado(historialId);
+
+        // Obtener fecha del archivo del historial o de las operaciones para generar el nombre
+        const client = await pool.connect();
+        try {
+            // Primero intentar obtener fecha_archivo del historial
+            const historialResult = await client.query(
+                'SELECT fecha_archivo, nombre_archivo FROM historial_archivos WHERE id = $1',
+                [historialId]
+            );
+            
+            console.log(`Buscando fecha para historial ${historialId}:`, historialResult.rows[0]);
+            
+            let fechaArchivo = null;
+            if (historialResult.rows.length > 0) {
+                const row = historialResult.rows[0];
+                if (row.fecha_archivo) {
+                    fechaArchivo = row.fecha_archivo;
+                    console.log(`Fecha obtenida del historial: ${fechaArchivo} (tipo: ${typeof fechaArchivo}, valor: ${JSON.stringify(fechaArchivo)})`);
+                } else {
+                    console.log(`fecha_archivo es null en historial ${historialId}, buscando en operaciones...`);
+                    // Si no hay fecha en el historial, obtenerla de la primera operación
+                    const operacionResult = await client.query(
+                        'SELECT fecha FROM operaciones_acciones WHERE historial_id = $1 ORDER BY fecha ASC LIMIT 1',
+                        [historialId]
+                    );
+                    if (operacionResult.rows.length > 0 && operacionResult.rows[0].fecha) {
+                        fechaArchivo = operacionResult.rows[0].fecha;
+                        console.log(`Fecha obtenida de operación: ${fechaArchivo} (tipo: ${typeof fechaArchivo})`);
+                    } else {
+                        console.log(`No se encontró fecha en operaciones para historial ${historialId}`);
+                    }
+                }
+            } else {
+                console.log(`No se encontró historial con id ${historialId}`);
+            }
+            
+            let filename = 'Control Operaciones Diarias FIP.xls';
+            if (fechaArchivo) {
+                // Parsear la fecha (PostgreSQL puede devolverla como string 'YYYY-MM-DD' o como Date)
+                let fecha;
+                if (fechaArchivo instanceof Date) {
+                    fecha = fechaArchivo;
+                } else if (typeof fechaArchivo === 'string') {
+                    // Si viene como string, puede ser 'YYYY-MM-DD' o ISO string
+                    if (fechaArchivo.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                        // Formato 'YYYY-MM-DD', agregar hora para evitar problemas de timezone
+                        fecha = new Date(fechaArchivo + 'T00:00:00');
+                    } else {
+                        // Intentar parsear como ISO string
+                        fecha = new Date(fechaArchivo);
+                    }
+                } else {
+                    fecha = new Date(fechaArchivo);
+                }
+                
+                if (!isNaN(fecha.getTime())) {
+                    // Usar métodos locales para obtener día, mes y año correctos
+                    const day = String(fecha.getDate()).padStart(2, '0');
+                    const month = String(fecha.getMonth() + 1).padStart(2, '0');
+                    const year = fecha.getFullYear();
+                    filename = `Control Operaciones Diarias FIP ${day}.${month}.${year}.xls`;
+                    console.log(`Nombre de archivo generado: ${filename} (fecha original: ${fechaArchivo}, fecha parseada: ${fecha.toISOString()})`);
+                } else {
+                    console.log(`Fecha inválida para historial ${historialId}: ${fechaArchivo} (tipo: ${typeof fechaArchivo})`);
+                }
+            } else {
+                console.log(`No se encontró fecha_archivo para historial ${historialId}`);
+            }
+            
+            // Codificar el nombre del archivo para el header Content-Disposition
+            // Usar encodeURIComponent para caracteres especiales y espacios
+            const encodedFilename = encodeURIComponent(filename);
+            res.setHeader('Content-Type', 'application/vnd.ms-excel');
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"; filename*=UTF-8''${encodedFilename}`);
+            console.log(`Enviando archivo con nombre: ${filename}, header: attachment; filename="${filename}"; filename*=UTF-8''${encodedFilename}`);
+            res.send(excelBuffer);
+        } finally {
+            client.release();
+        }
+    } catch (error) {
+        console.error('Error al generar CSV transformado:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint para descargar archivo original del historial
+app.get('/api/descargar-archivo-original/:id', async (req, res) => {
+    try {
+        const historialId = parseInt(req.params.id);
+        if (isNaN(historialId)) {
+            return res.status(400).json({ error: 'ID de historial inválido' });
+        }
+
+        const client = await pool.connect();
+        try {
+            const result = await client.query(
+                'SELECT nombre_archivo, archivo_original, tipo FROM historial_archivos WHERE id = $1',
+                [historialId]
+            );
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Archivo no encontrado en el historial' });
+            }
+
+            const { nombre_archivo, archivo_original, tipo } = result.rows[0];
+
+            if (!archivo_original) {
+                return res.status(404).json({ error: 'El archivo original no está disponible' });
+            }
+
+            // Determinar el Content-Type según el tipo de archivo
+            let contentType = 'application/octet-stream';
+            if (nombre_archivo.endsWith('.csv')) {
+                contentType = 'text/csv';
+            } else if (nombre_archivo.endsWith('.xlsx')) {
+                contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+            } else if (nombre_archivo.endsWith('.xls')) {
+                contentType = 'application/vnd.ms-excel';
+            }
+
+            res.setHeader('Content-Type', contentType);
+            res.setHeader('Content-Disposition', `attachment; filename="${nombre_archivo}"`);
+            res.send(archivo_original);
+        } finally {
+            client.release();
+        }
+    } catch (error) {
+        console.error('Error al descargar archivo original:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint temporal para aplicar migración de tipos numéricos
+app.post('/api/migrate-numeric-types', async (req, res) => {
+    try {
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            
+            await client.query(`
+                ALTER TABLE operaciones_acciones 
+                ALTER COLUMN cantidad TYPE NUMERIC(18, 3),
+                ALTER COLUMN precio TYPE NUMERIC(18, 2),
+                ALTER COLUMN monto TYPE NUMERIC(18, 2)
+            `);
+            
+            await client.query('COMMIT');
+            res.json({ success: true, message: 'Migración aplicada correctamente' });
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+    } catch (error) {
+        console.error('Error al aplicar migración:', error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // Start server

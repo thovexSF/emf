@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import './styles/App.css';
 import AYR, { AYRModalContent } from './components/AportesYRescates';
 import DragDropCSV, { DragDropCSVModalContent } from './components/OperacionesAFinix';
+import BalanceAcciones from './components/BalanceAcciones';
 import Modal from './components/Modal';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faInfoCircle } from "@fortawesome/free-solid-svg-icons";
@@ -69,6 +70,12 @@ const App = () => {
                             <FontAwesomeIcon icon={faInfoCircle} />
                         </button>
                     </div>
+                    <div 
+                        className={`nav-tab ${activeTab === 'balance' ? 'active' : ''}`}
+                        onClick={() => handleTabChange('balance')}
+                    >
+                        Balance de Acciones
+                    </div>
                     <div className="dark-mode-switch">
                         <span className="mode-label">Modo Oscuro</span>
                         <label>
@@ -86,6 +93,7 @@ const App = () => {
             <div className="content-container">
                 {activeTab === 'ayr' && <AYR darkMode={darkMode} />}
                 {activeTab === 'transformar' && <DragDropCSV darkMode={darkMode} />}
+                {activeTab === 'balance' && <BalanceAcciones darkMode={darkMode} />}
             </div>
 
             <Modal 

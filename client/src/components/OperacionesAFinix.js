@@ -218,6 +218,7 @@ const OperacionesAFinix = ({ darkMode }) => {
                 Fecha: fecha,
                 Codigo: parseFloat(esCompra ? CodigoCompra : CodigoVende) || 0,
                 'Tipo Operación': esCompra ? `Compra ${Nemotecnico.toLowerCase().trim()}` : `Venta ${Nemotecnico.toLowerCase().trim()}`,
+                Nemotecnico: Nemotecnico, // Agregar nemotécnico original
                 Cantidad: Cantidad || '0',
                 Precio: Precio || '0',
                 'Dcto.': 0,
@@ -579,6 +580,17 @@ const OperacionesAFinix = ({ darkMode }) => {
                     return parseFloat(value.toString().replace(/\./g, '').replace(',', '.')) || 0;
                 };
 
+                // Formatear fecha como DD-MM-YYYY para evitar problemas de timezone
+                let fechaFormateada = '';
+                if (fila.Fecha instanceof Date) {
+                    const day = String(fila.Fecha.getDate()).padStart(2, '0');
+                    const month = String(fila.Fecha.getMonth() + 1).padStart(2, '0');
+                    const year = fila.Fecha.getFullYear();
+                    fechaFormateada = `${day}-${month}-${year}`;
+                } else if (fila.Fecha) {
+                    fechaFormateada = String(fila.Fecha);
+                }
+
                 // Formatear fecha de pago como DD-MM-YYYY
                 let fechaPagoFormateada = '';
                 if (fila['Fecha Pago'] instanceof Date) {
@@ -591,7 +603,7 @@ const OperacionesAFinix = ({ darkMode }) => {
                 }
 
                 return {
-                    Fecha: fila.Fecha,
+                    Fecha: fechaFormateada,
                     Codigo: fila.Codigo,
                     'Tipo Operación': fila['Tipo Operación'].trim(),
                     Cantidad: parseNumber(fila.Cantidad),
@@ -614,7 +626,7 @@ const OperacionesAFinix = ({ darkMode }) => {
             const hojaFIP = XLSX.utils.json_to_sheet(datosParaExcel, {
                 skipHeader: false,
                 origin: 'A1',
-                cellDates: true
+                cellDates: false // No usar cellDates porque las fechas ya están formateadas como strings
             });
 
             // Asegurarnos de que los valores de texto no tengan espacios extra y aplicar formatos
@@ -630,11 +642,9 @@ const OperacionesAFinix = ({ darkMode }) => {
                         
                         // Aplicar formatos específicos
                         if (R > 0) { // No aplicar formatos a la fila de encabezados
-                            if (C === 0) { // Columna de fecha (Fecha original)
-                                if (hojaFIP[cell].t === 'd' || hojaFIP[cell].t === 'n') {
-                                    hojaFIP[cell].z = 'dd-mm-yyyy';
-                                    hojaFIP[cell].t = 'd';
-                                }
+                            if (C === 0) { // Columna de fecha (ya formateada como string DD-MM-YYYY)
+                                // Mantener como texto para conservar el formato DD-MM-YYYY
+                                hojaFIP[cell].t = 's';
                             } else if (C === 11) { // Columna de Fecha Pago (ya formateada como string DD-MM-YYYY)
                                 // Mantener como texto para conservar el formato DD-MM-YYYY
                                 hojaFIP[cell].t = 's';
@@ -685,17 +695,45 @@ const OperacionesAFinix = ({ darkMode }) => {
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
 
-                setDescargaExitosa(true);
-                setProcessingStatus('');
-            } else {
-                setProcessingStatus('Error: No se pudo obtener la fecha del archivo');
-                setDescargaExitosa(false);
+            // Guardar operaciones en la base de datos
+            try {
+                const API_URL = process.env.NODE_ENV === 'production'
+                    ? process.env.REACT_APP_API_URL || window.location.origin + '/api'
+                    : process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+                
+                // Obtener nombre del archivo
+                const nombreArchivo = archivoEntrada ? archivoEntrada.name : null;
+                
+                const response = await fetch(`${API_URL}/save-operaciones`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ operaciones: datosDestino, nombreArchivo }),
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log(`Se guardaron ${result.saved} operaciones de acciones`);
+                } else {
+                    console.error('Error al guardar operaciones:', await response.text());
+                }
+            } catch (saveError) {
+                console.error('Error al guardar operaciones:', saveError);
+                // No bloqueamos el flujo si falla el guardado
             }
-        } catch (error) {
-            setProcessingStatus(`Error procesando archivo: ${error.message}`);
+
+            setDescargaExitosa(true);
+            setProcessingStatus('');
+        } else {
+            setProcessingStatus('Error: No se pudo obtener la fecha del archivo');
             setDescargaExitosa(false);
         }
-    }, [mapearATablaDestino, datosEntrada, archivoEntrada]);
+    } catch (error) {
+        setProcessingStatus(`Error procesando archivo: ${error.message}`);
+        setDescargaExitosa(false);
+    }
+}, [mapearATablaDestino, datosEntrada, archivoEntrada]);
 
     const verificarFechaArchivo = (fechaStr) => {
         if (!fechaStr) return false;
