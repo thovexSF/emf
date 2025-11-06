@@ -848,8 +848,33 @@ const OperacionesAFinix = ({ darkMode }) => {
                                     // Mapear nombres de corredores usando el código
                                     const codigoVendeNum = parseInt(fila.CodigoVende) || 0;
                                     const codigoCompraNum = parseInt(fila.CodigoCompra) || 0;
-                                    const corredorVendeMapeado = corredores.find(c => c.codigo === codigoVendeNum)?.nombre?.trim() || fila.CorredorVende;
-                                    const corredorCompraMapeado = corredores.find(c => c.codigo === codigoCompraNum)?.nombre?.trim() || fila.CorredorCompra;
+                                    
+                                    // Buscar por código primero
+                                    let corredorVendeMapeado = corredores.find(c => c.codigo === codigoVendeNum)?.nombre?.trim();
+                                    let corredorCompraMapeado = corredores.find(c => c.codigo === codigoCompraNum)?.nombre?.trim();
+                                    
+                                    // Si no se encuentra por código, buscar por nombre parcial (para casos como "LARRA" -> "LARRAIN VIAL")
+                                    if (!corredorVendeMapeado && fila.CorredorVende) {
+                                        const nombreLimpio = fila.CorredorVende.trim().toUpperCase();
+                                        const corredorEncontrado = corredores.find(c => 
+                                            c.nombre.toUpperCase().includes(nombreLimpio) || 
+                                            nombreLimpio.includes(c.nombre.toUpperCase().substring(0, nombreLimpio.length))
+                                        );
+                                        corredorVendeMapeado = corredorEncontrado?.nombre?.trim() || fila.CorredorVende;
+                                    } else if (!corredorVendeMapeado) {
+                                        corredorVendeMapeado = fila.CorredorVende;
+                                    }
+                                    
+                                    if (!corredorCompraMapeado && fila.CorredorCompra) {
+                                        const nombreLimpio = fila.CorredorCompra.trim().toUpperCase();
+                                        const corredorEncontrado = corredores.find(c => 
+                                            c.nombre.toUpperCase().includes(nombreLimpio) || 
+                                            nombreLimpio.includes(c.nombre.toUpperCase().substring(0, nombreLimpio.length))
+                                        );
+                                        corredorCompraMapeado = corredorEncontrado?.nombre?.trim() || fila.CorredorCompra;
+                                    } else if (!corredorCompraMapeado) {
+                                        corredorCompraMapeado = fila.CorredorCompra;
+                                    }
 
                                     return (
                                         <tr key={index} className={`${filasCompletadas.has(index) ? 'fila-completada' : ''} ${fila.esNuevaFila ? 'fila-nueva' : ''}`}>
