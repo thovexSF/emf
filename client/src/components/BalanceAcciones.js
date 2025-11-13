@@ -61,7 +61,6 @@ const BalanceAcciones = ({ darkMode }) => {
     const [operacionesModal, setOperacionesModal] = useState([]);
     const [historialIdModal, setHistorialIdModal] = useState(null);
     const [filasEditables, setFilasEditables] = useState(new Set());
-    const [filasCompletadas, setFilasCompletadas] = useState(new Set());
 
     const API_URL = process.env.NODE_ENV === 'production'
         ? process.env.REACT_APP_API_URL || window.location.origin + '/api'
@@ -278,7 +277,6 @@ const BalanceAcciones = ({ darkMode }) => {
             setHistorialIdModal(historialId);
             setShowOperacionesModal(true);
             setFilasEditables(new Set());
-            setFilasCompletadas(new Set());
         } catch (error) {
             console.error('Error al cargar operaciones:', error);
             setError('Error al cargar las operaciones del historial');
@@ -1764,11 +1762,6 @@ const BalanceAcciones = ({ darkMode }) => {
                                                                             nuevas.delete(index);
                                                                             return nuevas;
                                                                         });
-                                                                        setFilasCompletadas(prev => {
-                                                                            const nuevas = new Set(prev);
-                                                                            nuevas.add(index);
-                                                                            return nuevas;
-                                                                        });
                                                                     }}
                                                                     className="operaciones-modal-check-button"
                                                                 >
@@ -1778,11 +1771,6 @@ const BalanceAcciones = ({ darkMode }) => {
                                                                 <button
                                                                     onClick={() => {
                                                                         setFilasEditables(prev => new Set([...prev, index]));
-                                                                        setFilasCompletadas(prev => {
-                                                                            const nuevas = new Set(prev);
-                                                                            nuevas.delete(index);
-                                                                            return nuevas;
-                                                                        });
                                                                     }}
                                                                     className="operaciones-modal-edit-button"
                                                                 >
