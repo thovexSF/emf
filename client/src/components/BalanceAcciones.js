@@ -9,6 +9,30 @@ import ExcelJS from 'exceljs';
 
 const XLSX = require('xlsx');
 
+// Lista de corredores
+const corredores = [
+    { codigo: 1, nombre: 'EMF' },
+    { codigo: 20, nombre: 'SECURITY' },
+    { codigo: 35, nombre: 'LARRAIN VIAL' },
+    { codigo: 47, nombre: 'GBM' },
+    { codigo: 56, nombre: 'DEUTSCHE' },
+    { codigo: 58, nombre: 'BCI' },
+    { codigo: 88, nombre: 'SANTANDER' },
+    { codigo: 61, nombre: 'MERRIL' },
+    { codigo: 66, nombre: 'CREDICORP CAPITAL' },
+    { codigo: 85, nombre: 'SCOTIA' },
+    { codigo: 48, nombre: 'SCOTIA' },
+    { codigo: 70, nombre: 'BTG PACTUAL' },
+    { codigo: 72, nombre: 'CORPBANCA' },
+    { codigo: 76, nombre: 'EUROAMERICA' },
+    { codigo: 91, nombre: 'PENTA' },
+    { codigo: 82, nombre: 'BICE' },
+    { codigo: 83, nombre: 'CRUZ DEL SUR' },
+    { codigo: 86, nombre: 'BANCHILE' },
+    { codigo: 90, nombre: 'CONSORCIO' },
+    { codigo: 51, nombre: 'NEVASA' }
+];
+
 const BalanceAcciones = ({ darkMode }) => {
     const [balance, setBalance] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -1660,7 +1684,7 @@ const BalanceAcciones = ({ darkMode }) => {
                                                                         setOperacionesModal(nuevasOperaciones);
                                                                     }
                                                                 }}
-                                                                dateFormat="dd/MM/yyyy"
+                                                                dateFormat="dd-MM-yyyy"
                                                                 className="celda-input"
                                                             />
                                                         ) : (
@@ -1750,7 +1774,34 @@ const BalanceAcciones = ({ darkMode }) => {
                                                         {Math.round(parseFloat(fila.Monto?.toString().replace(/\./g, '').replace(',', '.') || 0)).toLocaleString('es-CL')}
                                                     </td>
                                                     <td>
-                                                        {fila.Tipo === 'Compra' ? fila.CorredorCompra : fila.CorredorVende}
+                                                        {filasEditables.has(index) ? (
+                                                            <select
+                                                                className="celda-input"
+                                                                value={fila.Tipo === 'Compra' ? fila.CodigoCompra : fila.CodigoVende}
+                                                                onChange={(e) => {
+                                                                    const codigoCorredor = parseInt(e.target.value);
+                                                                    const corredor = corredores.find(c => c.codigo === codigoCorredor);
+                                                                    const nuevasOperaciones = [...operacionesModal];
+                                                                    if (fila.Tipo === 'Compra') {
+                                                                        nuevasOperaciones[index].CodigoCompra = codigoCorredor;
+                                                                        nuevasOperaciones[index].CorredorCompra = corredor?.nombre || '';
+                                                                    } else {
+                                                                        nuevasOperaciones[index].CodigoVende = codigoCorredor;
+                                                                        nuevasOperaciones[index].CorredorVende = corredor?.nombre || '';
+                                                                    }
+                                                                    setOperacionesModal(nuevasOperaciones);
+                                                                }}
+                                                            >
+                                                                <option value="">Seleccionar</option>
+                                                                {corredores.map(corredor => (
+                                                                    <option key={corredor.codigo} value={corredor.codigo}>
+                                                                        {corredor.nombre}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        ) : (
+                                                            fila.Tipo === 'Compra' ? fila.CorredorCompra : fila.CorredorVende
+                                                        )}
                                                     </td>
                                                     <td>
                                                         <div className="operaciones-modal-row-actions">

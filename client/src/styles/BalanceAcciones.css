@@ -1064,52 +1064,59 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.7);
+    background-color: rgba(0, 0, 0, 0.75);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 1000;
-    padding: 2rem;
+    padding: 1rem;
 }
 
 .operaciones-modal-content {
-    background-color: var(--bg-color);
-    border-radius: 8px;
-    width: 95%;
-    max-width: 1400px;
-    max-height: 90vh;
+    background-color: #ffffff;
+    border-radius: 6px;
+    width: 98%;
+    max-width: 1600px;
+    max-height: 95vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    border: 1px solid #ddd;
 }
 
 .operaciones-modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--border-color);
+    padding: 1rem 1.25rem;
+    border-bottom: 2px solid var(--primary-color);
+    background-color: #f8f9fa;
 }
 
 .operaciones-modal-header h2 {
     margin: 0;
-    color: var(--text-color);
+    color: #333;
+    font-size: 1.25rem;
+    font-weight: 600;
 }
 
 .operaciones-modal-close {
     background: none;
     border: none;
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     cursor: pointer;
-    color: var(--text-color);
-    padding: 0.5rem;
+    color: #666;
+    padding: 0.25rem 0.5rem;
     display: flex;
     align-items: center;
     justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
 }
 
 .operaciones-modal-close:hover {
     color: var(--primary-color);
+    background-color: rgba(242, 100, 57, 0.1);
 }
 
 .operaciones-modal-body {
@@ -1117,27 +1124,29 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    padding: 1.5rem;
+    padding: 1rem;
 }
 
 .operaciones-modal-actions {
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
     display: flex;
-    gap: 1rem;
+    gap: 0.75rem;
+    flex-wrap: wrap;
 }
 
 .operaciones-modal-add-button {
     background-color: var(--primary-color);
     color: white;
     border: none;
-    padding: 0.75rem 1.5rem;
+    padding: 0.5rem 1rem;
     border-radius: 4px;
     cursor: pointer;
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 1rem;
+    font-size: 0.875rem;
     font-weight: 600;
+    transition: background-color 0.2s;
 }
 
 .operaciones-modal-add-button:hover {
@@ -1147,31 +1156,42 @@
 .operaciones-modal-table-container {
     flex: 1;
     overflow-y: auto;
-    border: 1px solid var(--border-color);
+    overflow-x: auto;
+    border: 1px solid #ddd;
     border-radius: 4px;
+    background-color: #ffffff;
 }
 
 .operaciones-modal-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+    min-width: 1000px;
 }
 
 .operaciones-modal-table th {
     background-color: var(--primary-color);
     color: white;
-    padding: 0.75rem;
+    padding: 0.5rem 0.75rem;
     text-align: left;
     font-weight: 600;
     position: sticky;
     top: 0;
     z-index: 10;
+    font-size: 0.8rem;
+    white-space: nowrap;
 }
 
 .operaciones-modal-table td {
-    padding: 0.75rem;
-    border-bottom: 1px solid var(--border-color);
-    color: var(--text-color);
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #e0e0e0;
+    color: #333;
+    white-space: nowrap;
+    background-color: #ffffff;
+}
+
+.operaciones-modal-table tbody tr {
+    transition: background-color 0.15s;
 }
 
 .operaciones-modal-table tbody tr:hover {
@@ -1182,9 +1202,14 @@
     background-color: rgba(76, 175, 80, 0.1);
 }
 
+.operaciones-modal-table tbody tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
 .operaciones-modal-row-actions {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.25rem;
+    justify-content: center;
 }
 
 .operaciones-modal-edit-button,
@@ -1193,39 +1218,53 @@
     background: none;
     border: none;
     cursor: pointer;
-    padding: 0.5rem;
+    padding: 0.375rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--text-color);
-    font-size: 1rem;
+    color: #666;
+    font-size: 0.875rem;
+    border-radius: 3px;
+    transition: all 0.2s;
+    min-width: 28px;
+    min-height: 28px;
 }
 
 .operaciones-modal-edit-button:hover {
     color: var(--primary-color);
+    background-color: rgba(242, 100, 57, 0.1);
 }
 
 .operaciones-modal-check-button:hover {
     color: #4caf50;
+    background-color: rgba(76, 175, 80, 0.1);
 }
 
 .operaciones-modal-delete-button:hover {
     color: #f44336;
+    background-color: rgba(244, 67, 54, 0.1);
 }
 
 .celda-input {
     width: 100%;
-    padding: 0.5rem;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    font-size: 0.9rem;
+    min-width: 80px;
+    padding: 0.375rem 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    background-color: #ffffff;
+    color: #333;
+    font-size: 0.85rem;
+    transition: border-color 0.2s;
 }
 
 .celda-input:focus {
     outline: none;
     border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(242, 100, 57, 0.2);
+}
+
+.operaciones-modal-table select.celda-input {
+    min-width: 120px;
 }
 
 .view-operations-button {
@@ -1242,35 +1281,62 @@
     color: var(--primary-color);
 }
 
-/* Dark mode para el modal */
+/* Mantener el modal siempre claro, incluso en dark mode */
 .dark-mode .operaciones-modal-content {
-    background-color: #1a1a1a;
-    border: 1px solid #333;
+    background-color: #ffffff;
+    border: 1px solid #ddd;
 }
 
 .dark-mode .operaciones-modal-header {
-    border-bottom-color: #333;
+    border-bottom-color: var(--primary-color);
+    background-color: #f8f9fa;
+}
+
+.dark-mode .operaciones-modal-header h2 {
+    color: #333;
+}
+
+.dark-mode .operaciones-modal-close {
+    color: #666;
 }
 
 .dark-mode .operaciones-modal-table-container {
-    border-color: #333;
+    border-color: #ddd;
+    background-color: #ffffff;
 }
 
 .dark-mode .operaciones-modal-table td {
-    border-bottom-color: #333;
+    border-bottom-color: #e0e0e0;
+    color: #333;
+    background-color: #ffffff;
 }
 
 .dark-mode .operaciones-modal-table tbody tr:hover {
-    background-color: rgba(242, 100, 57, 0.2);
+    background-color: rgba(242, 100, 57, 0.1);
+}
+
+.dark-mode .operaciones-modal-table tbody tr.fila-nueva {
+    background-color: rgba(76, 175, 80, 0.1);
+}
+
+.dark-mode .operaciones-modal-table tbody tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+.dark-mode .operaciones-modal-edit-button,
+.dark-mode .operaciones-modal-check-button,
+.dark-mode .operaciones-modal-delete-button {
+    color: #666;
 }
 
 .dark-mode .celda-input {
-    background-color: #2a2a2a;
-    border-color: #444;
-    color: var(--text-color);
+    background-color: #ffffff;
+    border-color: #ccc;
+    color: #333;
 }
 
 .dark-mode .celda-input:focus {
     border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(242, 100, 57, 0.2);
 }
 
