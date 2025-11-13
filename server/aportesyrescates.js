@@ -2368,13 +2368,21 @@ const generarExcelTransformado = async (historialId) => {
                     if (R > 0) {
                         if (C === 0) { // Columna de Fecha
                             // Aplicar formato de fecha yyyy-mm-dd
-                            if (hojaFIP[cell] && hojaFIP[cell].t === 'd') {
-                                hojaFIP[cell].z = 'yyyy-mm-dd';
+                            if (hojaFIP[cell]) {
+                                // Asegurar que sea tipo fecha
+                                if (hojaFIP[cell].t !== 'd') {
+                                    hojaFIP[cell].t = 'd';
+                                }
+                                hojaFIP[cell].z = 'yyyy-mm-dd'; // Formato de fecha yyyy-mm-dd
                             }
                         } else if (C === 11) { // Columna de Fecha Pago
                             // Aplicar formato de fecha yyyy-mm-dd
-                            if (hojaFIP[cell] && hojaFIP[cell].t === 'd') {
-                                hojaFIP[cell].z = 'yyyy-mm-dd';
+                            if (hojaFIP[cell]) {
+                                // Asegurar que sea tipo fecha
+                                if (hojaFIP[cell].t !== 'd') {
+                                    hojaFIP[cell].t = 'd';
+                                }
+                                hojaFIP[cell].z = 'yyyy-mm-dd'; // Formato de fecha yyyy-mm-dd
                             }
                         } else if (C === 3) {
                             hojaFIP[cell].t = 'n';
