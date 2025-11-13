@@ -661,6 +661,117 @@ app.delete('/api/ajuste-manual-balance/:nemotecnico', async (req, res) => {
     }
 });
 
+// Endpoint para obtener operaciones de un historial
+app.get('/api/historial-operaciones/:id', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const historialId = parseInt(req.params.id);
+        if (isNaN(historialId)) {
+            return res.status(400).json({ error: 'ID de historial inválido' });
+        }
+
+        const result = await client.query(`
+            SELECT 
+                id,
+                fecha,
+                nemotecnico,
+                cantidad,
+                precio,
+                monto,
+                tipo_operacion,
+                codigo_corredor,
+                nombre_corredor,
+                fecha_pago
+            FROM operaciones_acciones
+            WHERE historial_id = $1
+            ORDER BY fecha ASC, id ASC
+        `, [historialId]);
+
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error al obtener operaciones del historial:', error);
+        res.status(500).json({ error: error.message });
+    } finally {
+        client.release();
+    }
+});
+
+// Endpoint para actualizar operaciones de un historial
+app.post('/api/historial-operaciones/:id', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const historialId = parseInt(req.params.id);
+        if (isNaN(historialId)) {
+            return res.status(400).json({ error: 'ID de historial inválido' });
+        }
+
+        const { operaciones } = req.body;
+        if (!Array.isArray(operaciones)) {
+            return res.status(400).json({ error: 'operaciones debe ser un array' });
+        }
+
+        await client.query('BEGIN');
+
+        // Actualizar o insertar operaciones
+        for (const op of operaciones) {
+            if (op.id) {
+                // Actualizar operación existente
+                await client.query(`
+                    UPDATE operaciones_acciones
+                    SET fecha = $1,
+                        nemotecnico = $2,
+                        cantidad = $3,
+                        precio = $4,
+                        monto = $5,
+                        tipo_operacion = $6,
+                        codigo_corredor = $7,
+                        nombre_corredor = $8
+                    WHERE id = $9 AND historial_id = $10
+                `, [
+                    op.fecha,
+                    op.nemotecnico,
+                    op.cantidad,
+                    op.precio,
+                    op.monto,
+                    op.tipo_operacion,
+                    op.codigo_corredor,
+                    op.nombre_corredor,
+                    op.id,
+                    historialId
+                ]);
+            } else {
+                // Insertar nueva operación
+                await client.query(`
+                    INSERT INTO operaciones_acciones (
+                        historial_id, fecha, nemotecnico, cantidad, precio, monto,
+                        tipo_operacion, codigo_corredor, nombre_corredor, origen
+                    )
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'manual')
+                `, [
+                    historialId,
+                    op.fecha,
+                    op.nemotecnico,
+                    op.cantidad,
+                    op.precio,
+                    op.monto,
+                    op.tipo_operacion,
+                    op.codigo_corredor,
+                    op.nombre_corredor
+                ]);
+            }
+        }
+
+        await client.query('COMMIT');
+        res.json({ success: true, message: 'Operaciones actualizadas correctamente' });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error al actualizar operaciones:', error);
+        res.status(500).json({ error: error.message });
+    } finally {
+        client.release();
+    }
+});
+
 // Endpoint para descargar CSV transformado a FINIX
 app.get('/api/descargar-csv-transformado/:id', async (req, res) => {
     try {

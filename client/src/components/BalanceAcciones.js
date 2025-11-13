@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSync, faFileExcel, faUpload, faFileAlt, faTrash, faEdit, faDownload, faCheck, faTimes, faSort, faSortUp, faSortDown } from '@fortawesome/free-solid-svg-icons';
+import { faSync, faFileExcel, faUpload, faFileAlt, faTrash, faEdit, faDownload, faCheck, faTimes, faSort, faSortUp, faSortDown, faEye, faPlus } from '@fortawesome/free-solid-svg-icons';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import { useDropzone } from 'react-dropzone';
 import '../styles/BalanceAcciones.css';
 import ExcelJS from 'exceljs';
@@ -53,6 +55,13 @@ const BalanceAcciones = ({ darkMode }) => {
     const [notification, setNotification] = useState(null);
     const [confirmDialog, setConfirmDialog] = useState(null);
     const balanceRef = useRef([]);
+    
+    // Estados para el modal de visualización de operaciones
+    const [showOperacionesModal, setShowOperacionesModal] = useState(false);
+    const [operacionesModal, setOperacionesModal] = useState([]);
+    const [historialIdModal, setHistorialIdModal] = useState(null);
+    const [filasEditables, setFilasEditables] = useState(new Set());
+    const [filasCompletadas, setFilasCompletadas] = useState(new Set());
 
     const API_URL = process.env.NODE_ENV === 'production'
         ? process.env.REACT_APP_API_URL || window.location.origin + '/api'
@@ -231,6 +240,48 @@ const BalanceAcciones = ({ darkMode }) => {
             setError(err.message);
             console.error('Error al descargar archivo original:', err);
             alert(`Error al descargar archivo original: ${err.message}`);
+        } finally {
+            setLoading(false);
+        }
+    }, [API_URL]);
+
+    // Función para cargar operaciones del historial y abrir modal
+    const verOperaciones = useCallback(async (historialId) => {
+        try {
+            setLoading(true);
+            const response = await fetch(`${API_URL}/historial-operaciones/${historialId}`);
+            if (!response.ok) {
+                throw new Error('Error al cargar operaciones');
+            }
+            const operaciones = await response.json();
+            
+            // Convertir operaciones al formato esperado por el modal
+            const operacionesFormateadas = operaciones.map(op => ({
+                id: op.id,
+                Fecha: op.fecha ? (typeof op.fecha === 'string' ? op.fecha.replace(/-/g, '') : 
+                    `${op.fecha.getFullYear()}${String(op.fecha.getMonth() + 1).padStart(2, '0')}${String(op.fecha.getDate()).padStart(2, '0')}`) : '',
+                Nemotecnico: op.nemotecnico || '',
+                Cantidad: op.cantidad || '',
+                Precio: op.precio || '',
+                Monto: op.monto || '',
+                Tipo: op.tipo_operacion || '',
+                CorredorVende: op.tipo_operacion === 'Compra' ? '' : (op.nombre_corredor || ''),
+                CorredorCompra: op.tipo_operacion === 'Compra' ? (op.nombre_corredor || '') : '',
+                CodigoVende: op.tipo_operacion === 'Compra' ? '' : (op.codigo_corredor || ''),
+                CodigoCompra: op.tipo_operacion === 'Compra' ? (op.codigo_corredor || '') : '',
+                Condicion: 'CN',
+                Compra: op.tipo_operacion === 'Compra' ? '832' : '',
+                esNuevaFila: false
+            }));
+            
+            setOperacionesModal(operacionesFormateadas);
+            setHistorialIdModal(historialId);
+            setShowOperacionesModal(true);
+            setFilasEditables(new Set());
+            setFilasCompletadas(new Set());
+        } catch (error) {
+            console.error('Error al cargar operaciones:', error);
+            setError('Error al cargar las operaciones del historial');
         } finally {
             setLoading(false);
         }
@@ -1426,13 +1477,22 @@ const BalanceAcciones = ({ darkMode }) => {
                                                     <td>
                                                         <div className="historial-actions">
                                                             {item.tipo === 'csv' && (
-                                                                <button
-                                                                    onClick={() => descargarCSVTransformado(item.id, item.nombreArchivo)}
-                                                                    className="download-csv-button"
-                                                                    title="Descargar CSV transformado a FINIX"
-                                                                >
-                                                                    <FontAwesomeIcon icon={faDownload} />
-                                                                </button>
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => verOperaciones(item.id)}
+                                                                        className="view-operations-button"
+                                                                        title="Ver y editar operaciones"
+                                                                    >
+                                                                        <FontAwesomeIcon icon={faEye} />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => descargarCSVTransformado(item.id, item.nombreArchivo)}
+                                                                        className="download-csv-button"
+                                                                        title="Descargar CSV transformado a FINIX"
+                                                                    >
+                                                                        <FontAwesomeIcon icon={faDownload} />
+                                                                    </button>
+                                                                </>
                                                             )}
                                                             <button
                                                                 onClick={(e) => eliminarArchivo(item.id, item.nombreArchivo, e)}
@@ -1448,6 +1508,303 @@ const BalanceAcciones = ({ darkMode }) => {
                                         </tbody>
                                     </table>
                                 )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de visualización y edición de operaciones */}
+            {showOperacionesModal && (
+                <div className="operaciones-modal-overlay" onClick={() => setShowOperacionesModal(false)}>
+                    <div className="operaciones-modal-content" onClick={(e) => e.stopPropagation()}>
+                        <div className="operaciones-modal-header">
+                            <h2>Operaciones del Historial</h2>
+                            <button 
+                                className="operaciones-modal-close"
+                                onClick={() => setShowOperacionesModal(false)}
+                            >
+                                <FontAwesomeIcon icon={faTimes} />
+                            </button>
+                        </div>
+                        <div className="operaciones-modal-body">
+                            <div className="operaciones-modal-actions">
+                                <button
+                                    onClick={() => {
+                                        const nuevaFila = {
+                                            id: null,
+                                            Fecha: new Date().toISOString().slice(0, 10).replace(/-/g, ''),
+                                            Nemotecnico: '',
+                                            Cantidad: '',
+                                            Precio: '',
+                                            Monto: '',
+                                            Tipo: '',
+                                            CorredorVende: '',
+                                            CorredorCompra: '',
+                                            CodigoVende: '',
+                                            CodigoCompra: '',
+                                            Condicion: 'CN',
+                                            Compra: '',
+                                            esNuevaFila: true
+                                        };
+                                        setOperacionesModal(prev => [nuevaFila, ...prev]);
+                                        setFilasEditables(prev => new Set([0, ...Array.from(prev).map(i => i + 1)]));
+                                    }}
+                                    className="operaciones-modal-add-button"
+                                >
+                                    <FontAwesomeIcon icon={faPlus} />
+                                    Agregar Fila
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            setLoading(true);
+                                            // Convertir operaciones al formato esperado por el servidor
+                                            const operacionesParaGuardar = operacionesModal.map(op => ({
+                                                id: op.id,
+                                                fecha: op.Fecha ? (op.Fecha.length === 8 ? 
+                                                    `${op.Fecha.substring(0, 4)}-${op.Fecha.substring(4, 6)}-${op.Fecha.substring(6, 8)}` : 
+                                                    op.Fecha) : null,
+                                                nemotecnico: op.Nemotecnico || '',
+                                                cantidad: parseFloat(op.Cantidad?.toString().replace(/\./g, '').replace(',', '.')) || 0,
+                                                precio: parseFloat(op.Precio?.toString().replace(/\./g, '').replace(',', '.')) || 0,
+                                                monto: parseFloat(op.Monto?.toString().replace(/\./g, '').replace(',', '.')) || 0,
+                                                tipo_operacion: op.Tipo || '',
+                                                codigo_corredor: op.Tipo === 'Compra' ? (op.CodigoCompra || 0) : (op.CodigoVende || 0),
+                                                nombre_corredor: op.Tipo === 'Compra' ? (op.CorredorCompra || '') : (op.CorredorVende || '')
+                                            }));
+
+                                            const response = await fetch(`${API_URL}/historial-operaciones/${historialIdModal}`, {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                },
+                                                body: JSON.stringify({ operaciones: operacionesParaGuardar }),
+                                            });
+
+                                            if (!response.ok) {
+                                                const errorData = await response.json();
+                                                throw new Error(errorData.error || 'Error al guardar operaciones');
+                                            }
+
+                                            // Recargar balance e historial
+                                            await cargarBalance();
+                                            await cargarHistorial();
+                                            
+                                            // Cerrar modal
+                                            setShowOperacionesModal(false);
+                                            alert('Operaciones guardadas correctamente');
+                                        } catch (error) {
+                                            console.error('Error al guardar operaciones:', error);
+                                            alert(`Error al guardar operaciones: ${error.message}`);
+                                        } finally {
+                                            setLoading(false);
+                                        }
+                                    }}
+                                    className="operaciones-modal-add-button"
+                                    style={{ backgroundColor: '#4caf50' }}
+                                >
+                                    <FontAwesomeIcon icon={faCheck} />
+                                    Guardar Cambios
+                                </button>
+                            </div>
+                            <div className="operaciones-modal-table-container">
+                                <table className="operaciones-modal-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Fecha</th>
+                                            <th>Tipo</th>
+                                            <th>Nemotecnico</th>
+                                            <th>Cantidad</th>
+                                            <th>Precio</th>
+                                            <th>Monto</th>
+                                            <th>Corredor</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {operacionesModal.map((fila, index) => {
+                                            const fechaBase = fila.Fecha ? new Date(
+                                                fila.Fecha.substring(0, 4),
+                                                parseInt(fila.Fecha.substring(4, 6)) - 1,
+                                                fila.Fecha.substring(6, 8)
+                                            ) : new Date();
+                                            
+                                            const formatDate = (dateString) => {
+                                                if (!dateString) return '';
+                                                if (dateString.length === 8 && !dateString.includes('-')) {
+                                                    const year = dateString.substring(0, 4);
+                                                    const month = dateString.substring(4, 6);
+                                                    const day = dateString.substring(6, 8);
+                                                    return `${day}-${month}-${year}`;
+                                                }
+                                                if (dateString.includes('-')) {
+                                                    const [year, month, day] = dateString.split('-');
+                                                    return `${day}-${month}-${year}`;
+                                                }
+                                                return dateString;
+                                            };
+
+                                            return (
+                                                <tr key={index} className={fila.esNuevaFila ? 'fila-nueva' : ''}>
+                                                    <td>
+                                                        {filasEditables.has(index) ? (
+                                                            <DatePicker
+                                                                selected={fechaBase}
+                                                                onChange={(date) => {
+                                                                    if (date) {
+                                                                        const year = date.getFullYear();
+                                                                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                                                                        const day = String(date.getDate()).padStart(2, '0');
+                                                                        const nuevaFecha = `${year}${month}${day}`;
+                                                                        const nuevasOperaciones = [...operacionesModal];
+                                                                        nuevasOperaciones[index].Fecha = nuevaFecha;
+                                                                        setOperacionesModal(nuevasOperaciones);
+                                                                    }
+                                                                }}
+                                                                dateFormat="dd/MM/yyyy"
+                                                                className="celda-input"
+                                                            />
+                                                        ) : (
+                                                            formatDate(fila.Fecha)
+                                                        )}
+                                                    </td>
+                                                    <td>
+                                                        {filasEditables.has(index) ? (
+                                                            <select
+                                                                className="celda-input"
+                                                                value={fila.Tipo || ''}
+                                                                onChange={(e) => {
+                                                                    const nuevasOperaciones = [...operacionesModal];
+                                                                    nuevasOperaciones[index].Tipo = e.target.value;
+                                                                    nuevasOperaciones[index].Compra = e.target.value === 'Compra' ? '832' : '';
+                                                                    setOperacionesModal(nuevasOperaciones);
+                                                                }}
+                                                            >
+                                                                <option value="">Seleccionar</option>
+                                                                <option value="Compra">Compra</option>
+                                                                <option value="Venta">Venta</option>
+                                                            </select>
+                                                        ) : (
+                                                            fila.Tipo
+                                                        )}
+                                                    </td>
+                                                    <td>
+                                                        {filasEditables.has(index) ? (
+                                                            <input
+                                                                type="text"
+                                                                className="celda-input"
+                                                                value={fila.Nemotecnico || ''}
+                                                                onChange={(e) => {
+                                                                    const nuevasOperaciones = [...operacionesModal];
+                                                                    nuevasOperaciones[index].Nemotecnico = e.target.value;
+                                                                    setOperacionesModal(nuevasOperaciones);
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            fila.Nemotecnico
+                                                        )}
+                                                    </td>
+                                                    <td>
+                                                        {filasEditables.has(index) ? (
+                                                            <input
+                                                                type="text"
+                                                                className="celda-input"
+                                                                value={fila.Cantidad}
+                                                                onChange={(e) => {
+                                                                    const nuevasOperaciones = [...operacionesModal];
+                                                                    nuevasOperaciones[index].Cantidad = e.target.value;
+                                                                    // Recalcular Monto
+                                                                    const cantidad = parseFloat(e.target.value) || 0;
+                                                                    const precio = parseFloat(fila.Precio) || 0;
+                                                                    nuevasOperaciones[index].Monto = (cantidad * precio).toString();
+                                                                    setOperacionesModal(nuevasOperaciones);
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            parseInt(fila.Cantidad?.toString().replace(/\./g, ''))?.toLocaleString('es-CL') || '0'
+                                                        )}
+                                                    </td>
+                                                    <td>
+                                                        {filasEditables.has(index) ? (
+                                                            <input
+                                                                type="text"
+                                                                className="celda-input"
+                                                                value={fila.Precio}
+                                                                onChange={(e) => {
+                                                                    const nuevasOperaciones = [...operacionesModal];
+                                                                    nuevasOperaciones[index].Precio = e.target.value;
+                                                                    // Recalcular Monto
+                                                                    const cantidad = parseFloat(fila.Cantidad) || 0;
+                                                                    const precio = parseFloat(e.target.value) || 0;
+                                                                    nuevasOperaciones[index].Monto = (cantidad * precio).toString();
+                                                                    setOperacionesModal(nuevasOperaciones);
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            parseFloat(fila.Precio?.toString().replace(/\./g, '').replace(',', '.'))?.toLocaleString('es-CL', {
+                                                                minimumFractionDigits: 2,
+                                                                maximumFractionDigits: 2
+                                                            }) || '0,00'
+                                                        )}
+                                                    </td>
+                                                    <td>
+                                                        {Math.round(parseFloat(fila.Monto?.toString().replace(/\./g, '').replace(',', '.') || 0)).toLocaleString('es-CL')}
+                                                    </td>
+                                                    <td>
+                                                        {fila.Tipo === 'Compra' ? fila.CorredorCompra : fila.CorredorVende}
+                                                    </td>
+                                                    <td>
+                                                        <div className="operaciones-modal-row-actions">
+                                                            {filasEditables.has(index) ? (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setFilasEditables(prev => {
+                                                                            const nuevas = new Set(prev);
+                                                                            nuevas.delete(index);
+                                                                            return nuevas;
+                                                                        });
+                                                                        setFilasCompletadas(prev => {
+                                                                            const nuevas = new Set(prev);
+                                                                            nuevas.add(index);
+                                                                            return nuevas;
+                                                                        });
+                                                                    }}
+                                                                    className="operaciones-modal-check-button"
+                                                                >
+                                                                    <FontAwesomeIcon icon={faCheck} />
+                                                                </button>
+                                                            ) : (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setFilasEditables(prev => new Set([...prev, index]));
+                                                                        setFilasCompletadas(prev => {
+                                                                            const nuevas = new Set(prev);
+                                                                            nuevas.delete(index);
+                                                                            return nuevas;
+                                                                        });
+                                                                    }}
+                                                                    className="operaciones-modal-edit-button"
+                                                                >
+                                                                    <FontAwesomeIcon icon={faEdit} />
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                onClick={() => {
+                                                                    const nuevasOperaciones = operacionesModal.filter((_, i) => i !== index);
+                                                                    setOperacionesModal(nuevasOperaciones);
+                                                                }}
+                                                                className="operaciones-modal-delete-button"
+                                                            >
+                                                                <FontAwesomeIcon icon={faTrash} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>

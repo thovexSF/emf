@@ -159,3 +159,4 @@ Si tienes dudas sobre el proceso de desarrollo, consulta antes de hacer cambios 
 
 **Última actualización**: Noviembre 2025
 
+
