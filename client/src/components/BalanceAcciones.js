@@ -1470,22 +1470,39 @@ const BalanceAcciones = ({ darkMode }) => {
                                             {historial.map((item) => (
                                                 <tr key={item.id}>
                                                     <td>
-                                                        <button
-                                                            onClick={() => descargarArchivoOriginal(item.id, item.nombreArchivo)}
-                                                            className="file-icon-button"
-                                                            title="Descargar archivo original"
-                                                            style={{ 
-                                                                background: 'none', 
-                                                                border: 'none', 
-                                                                cursor: 'pointer',
-                                                                padding: 0,
-                                                                marginRight: '0.5rem',
-                                                                color: 'inherit'
-                                                            }}
-                                                        >
-                                                            <FontAwesomeIcon icon={faFileAlt} />
-                                                        </button>
-                                                        {item.nombreArchivo}
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                            <button
+                                                                onClick={() => descargarArchivoOriginal(item.id, item.nombreArchivo)}
+                                                                className="file-icon-button"
+                                                                title="Descargar archivo original"
+                                                                style={{ 
+                                                                    background: 'none', 
+                                                                    border: 'none', 
+                                                                    cursor: 'pointer',
+                                                                    padding: 0,
+                                                                    color: 'inherit'
+                                                                }}
+                                                            >
+                                                                <FontAwesomeIcon icon={faFileAlt} />
+                                                            </button>
+                                                            {item.tipo === 'csv' && (
+                                                                <button
+                                                                    onClick={() => verOperaciones(item.id)}
+                                                                    className="view-operations-button"
+                                                                    title="Ver y editar operaciones"
+                                                                    style={{
+                                                                        background: 'none',
+                                                                        border: 'none',
+                                                                        cursor: 'pointer',
+                                                                        padding: 0,
+                                                                        color: 'inherit'
+                                                                    }}
+                                                                >
+                                                                    <FontAwesomeIcon icon={faEye} />
+                                                                </button>
+                                                            )}
+                                                            <span>{item.nombreArchivo}</span>
+                                                        </div>
                                                     </td>
                                                     <td>
                                                         <span className={`tipo-badge ${item.tipo}`}>
@@ -1499,22 +1516,13 @@ const BalanceAcciones = ({ darkMode }) => {
                                                     <td>
                                                         <div className="historial-actions">
                                                             {item.tipo === 'csv' && (
-                                                                <>
-                                                                    <button
-                                                                        onClick={() => verOperaciones(item.id)}
-                                                                        className="view-operations-button"
-                                                                        title="Ver y editar operaciones"
-                                                                    >
-                                                                        <FontAwesomeIcon icon={faEye} />
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => descargarCSVTransformado(item.id, item.nombreArchivo)}
-                                                                        className="download-csv-button"
-                                                                        title="Descargar CSV transformado a FINIX"
-                                                                    >
-                                                                        <FontAwesomeIcon icon={faDownload} />
-                                                                    </button>
-                                                                </>
+                                                                <button
+                                                                    onClick={() => descargarCSVTransformado(item.id, item.nombreArchivo)}
+                                                                    className="download-csv-button"
+                                                                    title="Descargar CSV transformado a FINIX"
+                                                                >
+                                                                    <FontAwesomeIcon icon={faDownload} />
+                                                                </button>
                                                             )}
                                                             <button
                                                                 onClick={(e) => eliminarArchivo(item.id, item.nombreArchivo, e)}
