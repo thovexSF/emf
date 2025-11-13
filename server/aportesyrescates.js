@@ -2314,32 +2314,10 @@ const generarExcelTransformado = async (historialId) => {
             origin: 'A1'
         });
 
-        // Formatear datos para Excel
+        // Mantener fechas como Date para que Excel las trate como fechas
         const datosParaExcel = datosDestino.map(fila => {
-            // Formatear fecha como YYYY-MM-DD
-            let fechaFormateada = '';
-            if (fila.Fecha instanceof Date) {
-                const year = fila.Fecha.getFullYear();
-                const month = String(fila.Fecha.getMonth() + 1).padStart(2, '0');
-                const day = String(fila.Fecha.getDate()).padStart(2, '0');
-                fechaFormateada = `${year}-${month}-${day}`;
-            } else if (fila.Fecha) {
-                fechaFormateada = String(fila.Fecha);
-            }
-
-            // Formatear fecha de pago como YYYY-MM-DD
-            let fechaPagoFormateada = '';
-            if (fila['Fecha Pago'] instanceof Date) {
-                const year = fila['Fecha Pago'].getFullYear();
-                const month = String(fila['Fecha Pago'].getMonth() + 1).padStart(2, '0');
-                const day = String(fila['Fecha Pago'].getDate()).padStart(2, '0');
-                fechaPagoFormateada = `${year}-${month}-${day}`;
-            } else if (fila['Fecha Pago']) {
-                fechaPagoFormateada = String(fila['Fecha Pago']);
-            }
-
             return {
-                Fecha: fechaFormateada,
+                Fecha: fila.Fecha, // Mantener como Date
                 Codigo: fila.Codigo,
                 'Tipo Operación': fila['Tipo Operación'].trim(),
                 Cantidad: fila.Cantidad,
@@ -2350,7 +2328,7 @@ const generarExcelTransformado = async (historialId) => {
                 Abono: fila.Abono,
                 Cargo: fila.Cargo,
                 Saldo: fila.Saldo,
-                'Fecha Pago': fechaPagoFormateada,
+                'Fecha Pago': fila['Fecha Pago'], // Mantener como Date
                 Corredor: fila.Corredor.trim(),
                 Tipo: fila.Tipo.trim(),
                 '': '',
@@ -2362,7 +2340,7 @@ const generarExcelTransformado = async (historialId) => {
         const hojaFIP = XLSX.utils.json_to_sheet(datosParaExcel, {
             skipHeader: false,
             origin: 'A1',
-            cellDates: false // No usar cellDates porque las fechas ya están formateadas como strings
+            cellDates: true // Usar cellDates para que Excel trate las fechas como fechas
         });
 
         // Aplicar formatos
@@ -2388,12 +2366,16 @@ const generarExcelTransformado = async (historialId) => {
                     }
                     
                     if (R > 0) {
-                        if (C === 0) { // Columna de fecha (ya formateada como string DD-MM-YYYY)
-                            // Mantener como texto para conservar el formato DD-MM-YYYY
-                            hojaFIP[cell].t = 's';
-                        } else if (C === 11) { // Columna de Fecha Pago (ya formateada como string DD-MM-YYYY)
-                            // Mantener como texto para conservar el formato DD-MM-YYYY
-                            hojaFIP[cell].t = 's';
+                        if (C === 0) { // Columna de Fecha
+                            // Aplicar formato de fecha yyyy-mm-dd
+                            if (hojaFIP[cell] && hojaFIP[cell].t === 'd') {
+                                hojaFIP[cell].z = 'yyyy-mm-dd';
+                            }
+                        } else if (C === 11) { // Columna de Fecha Pago
+                            // Aplicar formato de fecha yyyy-mm-dd
+                            if (hojaFIP[cell] && hojaFIP[cell].t === 'd') {
+                                hojaFIP[cell].z = 'yyyy-mm-dd';
+                            }
                         } else if (C === 3) {
                             hojaFIP[cell].t = 'n';
                             hojaFIP[cell].z = '#,##0';
