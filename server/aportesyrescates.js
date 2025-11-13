@@ -2314,26 +2314,26 @@ const generarExcelTransformado = async (historialId) => {
             origin: 'A1'
         });
 
-        // Formatear datos para Excel (misma lógica que en OperacionesAFinix.js)
+        // Formatear datos para Excel
         const datosParaExcel = datosDestino.map(fila => {
-            // Formatear fecha como DD-MM-YYYY para evitar problemas de timezone
+            // Formatear fecha como YYYY-MM-DD
             let fechaFormateada = '';
             if (fila.Fecha instanceof Date) {
-                const day = String(fila.Fecha.getDate()).padStart(2, '0');
-                const month = String(fila.Fecha.getMonth() + 1).padStart(2, '0');
                 const year = fila.Fecha.getFullYear();
-                fechaFormateada = `${day}-${month}-${year}`;
+                const month = String(fila.Fecha.getMonth() + 1).padStart(2, '0');
+                const day = String(fila.Fecha.getDate()).padStart(2, '0');
+                fechaFormateada = `${year}-${month}-${day}`;
             } else if (fila.Fecha) {
                 fechaFormateada = String(fila.Fecha);
             }
 
-            // Formatear fecha de pago como DD-MM-YYYY (igual que en OperacionesAFinix.js)
+            // Formatear fecha de pago como YYYY-MM-DD
             let fechaPagoFormateada = '';
             if (fila['Fecha Pago'] instanceof Date) {
-                const day = String(fila['Fecha Pago'].getDate()).padStart(2, '0');
-                const month = String(fila['Fecha Pago'].getMonth() + 1).padStart(2, '0');
                 const year = fila['Fecha Pago'].getFullYear();
-                fechaPagoFormateada = `${day}-${month}-${year}`;
+                const month = String(fila['Fecha Pago'].getMonth() + 1).padStart(2, '0');
+                const day = String(fila['Fecha Pago'].getDate()).padStart(2, '0');
+                fechaPagoFormateada = `${year}-${month}-${day}`;
             } else if (fila['Fecha Pago']) {
                 fechaPagoFormateada = String(fila['Fecha Pago']);
             }
