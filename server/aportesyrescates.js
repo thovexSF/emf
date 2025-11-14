@@ -1161,11 +1161,9 @@ const saveOperacionesAcciones = async (operaciones, origen = 'csv', nombreArchiv
             
             // Filtrar solo acciones (excluir CFIs y otros)
             if (!nemotecnico || nemotecnico.includes('CFI') || nemotecnico.includes('OSA') || nemotecnico.trim() === '') {
-                console.log(`Operación descartada - Nemotécnico: "${nemotecnico}", Tipo Operación: "${op['Tipo Operación']}"`);
+                console.log(`[saveOperacionesAcciones] Operación descartada - Nemotécnico: "${nemotecnico}", Tipo Operación: "${op['Tipo Operación']}"`);
                 continue;
             }
-            
-            console.log(`Procesando operación - Nemotécnico: "${nemotecnico}", Tipo: "${op.Tipo || 'N/A'}", Cantidad: ${op.Cantidad || 'N/A'}, Precio: ${op.Precio || 'N/A'}`);
             
             // Formatear fecha
             let fecha;
@@ -1268,10 +1266,13 @@ const saveOperacionesAcciones = async (operaciones, origen = 'csv', nombreArchiv
                 cantidad = Math.sign(cantidad) * maxCantidad;
             }
             
+            // Log después de parsear todos los valores
+            console.log(`[saveOperacionesAcciones] Procesando operación - Nemotécnico: "${nemotecnico}" (original: "${op.Nemotecnico || op['Tipo Operación'] || 'N/A'}"), Tipo: "${op.Tipo || 'N/A'}", Cantidad: ${cantidad} (original: ${op.Cantidad || 'N/A'}), Precio: ${precio} (original: ${op.Precio || 'N/A'}), Monto: ${monto}, Fecha: ${fecha}`);
+            
             // Obtener fecha del archivo de la primera operación
             if (!fechaArchivo && fecha) {
                 fechaArchivo = fecha;
-                console.log(`Fecha de archivo extraída de operación: ${fechaArchivo}`);
+                console.log(`[saveOperacionesAcciones] Fecha de archivo extraída de operación: ${fechaArchivo}`);
             }
             
             // Obtener precio de cierre si está disponible
@@ -2209,30 +2210,42 @@ const generarExcelTransformado = async (historialId) => {
 
         // Transformar operaciones al formato FINIX
         const datosDestino = result.rows.map((row) => {
-            // Crear fecha usando métodos locales para evitar problemas de timezone
+            // Crear fecha usando UTC con hora mediodía para evitar problemas de timezone
             // PostgreSQL devuelve fechas como string 'YYYY-MM-DD' o como Date object
             let fecha;
             if (typeof row.fecha === 'string') {
                 // Si es string, parsear directamente como YYYY-MM-DD
-                const partes = row.fecha.split('-');
-                fecha = new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
+                // Extraer solo la parte de fecha si viene con hora (ej: "2025-10-28T00:00:00.000Z")
+                const fechaStr = row.fecha.split('T')[0];
+                const partes = fechaStr.split('-');
+                if (partes.length === 3) {
+                    // Crear fecha en UTC con hora mediodía (12:00) para evitar desplazamiento
+                    // Esto asegura que Excel/XLSX interprete la fecha correctamente
+                    fecha = new Date(Date.UTC(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]), 12, 0, 0));
+                } else {
+                    // Si no es formato YYYY-MM-DD, intentar parsear y normalizar
+                    const fechaTemp = new Date(row.fecha);
+                    fecha = new Date(Date.UTC(fechaTemp.getFullYear(), fechaTemp.getMonth(), fechaTemp.getDate(), 12, 0, 0));
+                }
             } else if (row.fecha instanceof Date) {
-                // Si es Date object de PostgreSQL, puede estar en UTC
-                // Usar métodos UTC para extraer año, mes y día, luego crear fecha local
-                const year = row.fecha.getUTCFullYear();
-                const month = row.fecha.getUTCMonth();
-                const day = row.fecha.getUTCDate();
-                fecha = new Date(year, month, day);
+                // Si es Date object de PostgreSQL, extraer año, mes y día usando métodos locales
+                // y crear nueva fecha en UTC con hora mediodía
+                const year = row.fecha.getFullYear();
+                const month = row.fecha.getMonth();
+                const day = row.fecha.getDate();
+                fecha = new Date(Date.UTC(year, month, day, 12, 0, 0));
             } else {
                 // Si es otro tipo, intentar convertir a string primero
                 const fechaStr = String(row.fecha);
-                if (fechaStr.match(/^\d{4}-\d{2}-\d{2}/)) {
-                    const partes = fechaStr.split('-');
-                    fecha = new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
+                // Extraer solo la parte de fecha si viene con hora
+                const fechaLimpia = fechaStr.split('T')[0];
+                if (fechaLimpia.match(/^\d{4}-\d{2}-\d{2}/)) {
+                    const partes = fechaLimpia.split('-');
+                    fecha = new Date(Date.UTC(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]), 12, 0, 0));
                 } else {
-                    // Último recurso: crear Date y normalizar
+                    // Último recurso: crear Date y normalizar usando métodos locales, luego UTC
                     const fechaBD = new Date(row.fecha);
-                    fecha = new Date(fechaBD.getUTCFullYear(), fechaBD.getUTCMonth(), fechaBD.getUTCDate());
+                    fecha = new Date(Date.UTC(fechaBD.getFullYear(), fechaBD.getMonth(), fechaBD.getDate(), 12, 0, 0));
                 }
             }
             
@@ -2244,12 +2257,17 @@ const generarExcelTransformado = async (historialId) => {
             const corredorNombre = corredores.find(c => c.codigo === codigoCorredor)?.nombre || row.nombre_corredor || '';
             
             // Calcular fecha de pago (siempre calcular de nuevo para asegurar que sea correcta)
-            const fechaPago = calcularFechaPago(fecha, row.fecha_pago, 'CN');
+            // Usar fecha local para el cálculo (no UTC)
+            const fechaLocal = new Date(fecha.getUTCFullYear(), fecha.getUTCMonth(), fecha.getUTCDate());
+            const fechaPagoLocal = calcularFechaPago(fechaLocal, row.fecha_pago, 'CN');
+            
+            // Convertir fecha de pago a UTC con hora mediodía para evitar desplazamiento
+            const fechaPago = new Date(Date.UTC(fechaPagoLocal.getFullYear(), fechaPagoLocal.getMonth(), fechaPagoLocal.getDate(), 12, 0, 0));
             
             // Log temporal para debugging
             if (row.nemotecnico && row.nemotecnico.length > 0) {
-                const fechaStr = `${String(fecha.getDate()).padStart(2, '0')}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${fecha.getFullYear()}`;
-                const fechaPagoStr = `${String(fechaPago.getDate()).padStart(2, '0')}-${String(fechaPago.getMonth() + 1).padStart(2, '0')}-${fechaPago.getFullYear()}`;
+                const fechaStr = `${String(fecha.getUTCDate()).padStart(2, '0')}-${String(fecha.getUTCMonth() + 1).padStart(2, '0')}-${fecha.getUTCFullYear()}`;
+                const fechaPagoStr = `${String(fechaPago.getUTCDate()).padStart(2, '0')}-${String(fechaPago.getUTCMonth() + 1).padStart(2, '0')}-${fechaPago.getUTCFullYear()}`;
                 console.log(`[DEBUG] Fecha operación: ${fechaStr} (${fecha.toISOString()}), Fecha pago calculada: ${fechaPagoStr} (${fechaPago.toISOString()}), Nemotécnico: ${row.nemotecnico}, row.fecha original: ${row.fecha} (tipo: ${typeof row.fecha})`);
             }
             
@@ -2315,9 +2333,10 @@ const generarExcelTransformado = async (historialId) => {
         });
 
         // Mantener fechas como Date para que Excel las trate como fechas
+        // Las fechas ya están en UTC con hora mediodía, así que las usamos directamente
         const datosParaExcel = datosDestino.map(fila => {
             return {
-                Fecha: fila.Fecha, // Mantener como Date
+                Fecha: fila.Fecha, // Fecha en UTC con hora mediodía
                 Codigo: fila.Codigo,
                 'Tipo Operación': fila['Tipo Operación'].trim(),
                 Cantidad: fila.Cantidad,
@@ -2328,7 +2347,7 @@ const generarExcelTransformado = async (historialId) => {
                 Abono: fila.Abono,
                 Cargo: fila.Cargo,
                 Saldo: fila.Saldo,
-                'Fecha Pago': fila['Fecha Pago'], // Mantener como Date
+                'Fecha Pago': fila['Fecha Pago'], // Fecha pago en UTC con hora mediodía
                 Corredor: fila.Corredor.trim(),
                 Tipo: fila.Tipo.trim(),
                 '': '',
@@ -2399,12 +2418,40 @@ const generarExcelTransformado = async (historialId) => {
             }
         }
 
-        // Autoajustar anchos de columna
+        // Autoajustar anchos de columna con anchos específicos para ciertas columnas
         const colWidths = [];
         for (let C = range.s.c; C <= range.e.c; C++) {
-            const maxWidth = maxWidths[C] || 10; // Mínimo 10 caracteres
-            // Agregar un poco de padding (2 caracteres) y establecer un máximo razonable
-            const width = Math.min(Math.max(maxWidth + 2, 10), 50);
+            let width;
+            
+            // Anchos específicos para columnas conocidas
+            if (C === 0) { // Columna Fecha
+                width = 12; // Suficiente para "2025-10-28"
+            } else if (C === 11) { // Columna Fecha Pago
+                width = 12; // Suficiente para "2025-10-30"
+            } else if (C === 1) { // Columna Código
+                width = 8;
+            } else if (C === 2) { // Columna Tipo Operación
+                width = 25; // Para "Compra vapores" o "Venta vapores"
+            } else if (C === 3) { // Columna Cantidad
+                width = 15;
+            } else if (C === 4) { // Columna Precio
+                width = 12;
+            } else if (C === 5 || C === 6 || C === 7) { // Dcto., Comision, Iva
+                width = 10;
+            } else if (C === 8 || C === 9) { // Abono, Cargo
+                width = 15;
+            } else if (C === 10) { // Saldo
+                width = 10;
+            } else if (C === 12) { // Corredor
+                width = 15;
+            } else if (C === 13) { // Tipo
+                width = 8;
+            } else {
+                // Para otras columnas, usar el cálculo automático pero más ajustado
+                const maxWidth = maxWidths[C] || 10;
+                width = Math.min(Math.max(maxWidth + 1, 8), 30); // Menos padding y máximo más bajo
+            }
+            
             colWidths.push({ wch: width });
         }
         hojaFIP['!cols'] = colWidths;
@@ -2498,14 +2545,41 @@ const getHistorialArchivos = async () => {
             ORDER BY fecha_procesamiento DESC
         `);
         
-        return result.rows.map(row => ({
-            id: row.id,
-            nombreArchivo: row.nombre_archivo,
-            tipo: row.tipo,
-            fechaProcesamiento: row.fecha_procesamiento,
-            cantidadOperaciones: row.cantidad_operaciones,
-            fechaArchivo: row.fecha_archivo ? format(new Date(row.fecha_archivo), 'yyyy-MM-dd') : null
-        }));
+        return result.rows.map(row => {
+            // Formatear fecha_archivo usando métodos locales para evitar problemas de timezone
+            let fechaArchivoFormateada = null;
+            if (row.fecha_archivo) {
+                if (typeof row.fecha_archivo === 'string') {
+                    // Si ya es string YYYY-MM-DD, usarlo directamente
+                    if (row.fecha_archivo.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                        fechaArchivoFormateada = row.fecha_archivo;
+                    } else {
+                        // Intentar parsear y formatear
+                        const fechaTemp = new Date(row.fecha_archivo);
+                        fechaArchivoFormateada = format(fechaTemp, 'yyyy-MM-dd');
+                    }
+                } else if (row.fecha_archivo instanceof Date) {
+                    // Si es Date object, usar métodos locales para extraer año, mes y día
+                    const year = row.fecha_archivo.getFullYear();
+                    const month = row.fecha_archivo.getMonth();
+                    const day = row.fecha_archivo.getDate();
+                    fechaArchivoFormateada = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                } else {
+                    // Último recurso: crear Date y formatear
+                    const fechaTemp = new Date(row.fecha_archivo);
+                    fechaArchivoFormateada = format(fechaTemp, 'yyyy-MM-dd');
+                }
+            }
+            
+            return {
+                id: row.id,
+                nombreArchivo: row.nombre_archivo,
+                tipo: row.tipo,
+                fechaProcesamiento: row.fecha_procesamiento,
+                cantidadOperaciones: row.cantidad_operaciones,
+                fechaArchivo: fechaArchivoFormateada
+            };
+        });
     } catch (error) {
         console.error('Error al obtener historial:', error);
         throw error;

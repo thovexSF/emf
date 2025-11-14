@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSync, faFileExcel, faUpload, faFileAlt, faTrash, faEdit, faDownload, faCheck, faTimes, faSort, faSortUp, faSortDown, faEye, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { faFileExcel, faUpload, faFileAlt, faTrash, faEdit, faDownload, faCheck, faTimes, faSort, faSortUp, faSortDown, faEye, faPlus, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useDropzone } from 'react-dropzone';
@@ -8,6 +8,87 @@ import '../styles/BalanceAcciones.css';
 import ExcelJS from 'exceljs';
 
 const XLSX = require('xlsx');
+
+const parseNumericValue = (value) => {
+    if (typeof value === 'number') {
+        return Number.isFinite(value) ? value : 0;
+    }
+    
+    if (typeof value !== 'string') {
+        return 0;
+    }
+    
+    let str = value.trim();
+    if (str === '') return 0;
+    
+    // Eliminar espacios
+    str = str.replace(/\s+/g, '');
+    
+    const thousandsDotPattern = /^\d{1,3}(\.\d{3})+(,\d+)?$/; // 1.234.567,89
+    const thousandsCommaPattern = /^\d{1,3}(,\d{3})+(\.\d+)?$/; // 1,234,567.89
+    
+    if (thousandsDotPattern.test(str)) {
+        const parsed = parseFloat(str.replace(/\./g, '').replace(',', '.'));
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+    
+    if (thousandsCommaPattern.test(str)) {
+        const parsed = parseFloat(str.replace(/,/g, ''));
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+    
+    // Si tiene punto y coma, determinar cuál es separador de miles y cuál decimal
+    if (str.includes(',') && str.includes('.')) {
+        // Contar cuántos caracteres hay después del último punto y última coma
+        const lastDotIndex = str.lastIndexOf('.');
+        const lastCommaIndex = str.lastIndexOf(',');
+        
+        // El que está más a la derecha es el separador decimal
+        if (lastDotIndex > lastCommaIndex) {
+            // Punto es decimal, coma es miles (formato: 1,234.56)
+            const parsed = parseFloat(str.replace(/,/g, ''));
+            return Number.isFinite(parsed) ? parsed : 0;
+        } else {
+            // Coma es decimal, punto es miles (formato: 1.234,56)
+            const parsed = parseFloat(str.replace(/\./g, '').replace(',', '.'));
+            return Number.isFinite(parsed) ? parsed : 0;
+        }
+    }
+    
+    // Si solo tiene coma, puede ser decimal (21,01) o miles (21,000)
+    if (str.includes(',') && !str.includes('.')) {
+        // Si la parte después de la coma tiene 1-2 dígitos, es decimal
+        const parts = str.split(',');
+        if (parts.length === 2 && parts[1].length <= 2) {
+            // Es decimal (21,01)
+            const parsed = parseFloat(str.replace(',', '.'));
+            return Number.isFinite(parsed) ? parsed : 0;
+        } else {
+            // Podría ser miles, pero mejor asumir decimal para precios pequeños
+            const parsed = parseFloat(str.replace(',', '.'));
+            return Number.isFinite(parsed) ? parsed : 0;
+        }
+    }
+    
+    // Si solo tiene punto, puede ser decimal (21.01) o miles (21.000)
+    if (str.includes('.') && !str.includes(',')) {
+        // Si la parte después del punto tiene 1-2 dígitos, es decimal
+        const parts = str.split('.');
+        if (parts.length === 2 && parts[1].length <= 2) {
+            // Es decimal (21.01)
+            const parsed = parseFloat(str);
+            return Number.isFinite(parsed) ? parsed : 0;
+        } else {
+            // Podría ser miles, parsear directamente
+            const parsed = parseFloat(str);
+            return Number.isFinite(parsed) ? parsed : 0;
+        }
+    }
+    
+    // Si no tiene ni punto ni coma, parsear directamente
+    const parsed = parseFloat(str);
+    return Number.isFinite(parsed) ? parsed : 0;
+};
 
 // Lista de corredores
 const corredores = [
@@ -79,12 +160,16 @@ const BalanceAcciones = ({ darkMode }) => {
     const [notification, setNotification] = useState(null);
     const [confirmDialog, setConfirmDialog] = useState(null);
     const balanceRef = useRef([]);
+    const tableSectionRef = useRef(null);
+    const historialSectionRef = useRef(null);
     
     // Estados para el modal de visualización de operaciones
     const [showOperacionesModal, setShowOperacionesModal] = useState(false);
     const [operacionesModal, setOperacionesModal] = useState([]);
     const [historialIdModal, setHistorialIdModal] = useState(null);
     const [filasEditables, setFilasEditables] = useState(new Set());
+    const [operacionesUltimoCSV, setOperacionesUltimoCSV] = useState([]);
+    const [guardandoOperaciones, setGuardandoOperaciones] = useState(false);
 
     const API_URL = process.env.NODE_ENV === 'production'
         ? process.env.REACT_APP_API_URL || window.location.origin + '/api'
@@ -138,22 +223,64 @@ const BalanceAcciones = ({ darkMode }) => {
             // Detectar filas modificadas si se solicitó comparación
             if (compararCambios && balanceAnterior && balanceAnterior.length > 0) {
                 const modificadas = new Set();
+                console.log(`[getBalanceAcciones] Comparando cambios. Balance anterior: ${balanceAnterior.length} items, Balance nuevo: ${balanceData.length} items`);
+                
                 balanceData.forEach(itemNuevo => {
-                    const itemAnterior = balanceAnterior.find(item => item.nemotecnico === itemNuevo.nemotecnico);
+                    // Normalizar nemotécnico para comparación (mayúsculas y sin espacios)
+                    const nemotecnicoNuevo = (itemNuevo.nemotecnico || '').trim().toUpperCase();
+                    const itemAnterior = balanceAnterior.find(item => 
+                        (item.nemotecnico || '').trim().toUpperCase() === nemotecnicoNuevo
+                    );
+                    
                     if (!itemAnterior) {
                         // Nueva fila
                         modificadas.add(itemNuevo.nemotecnico);
+                        console.log(`[getBalanceAcciones] NUEVA FILA - ${itemNuevo.nemotecnico}: existencia=${itemNuevo.existencia}`);
                     } else {
-                        // Comparar valores clave
+                        // Comparar valores clave - usar parseNumericValue para asegurar parsing correcto
+                        const existenciaAnterior = parseNumericValue(itemAnterior.existencia);
+                        const existenciaNueva = parseNumericValue(itemNuevo.existencia);
+                        const precioAnterior = parseNumericValue(itemAnterior.precioCompraPromedio || 0);
+                        const precioNuevo = parseNumericValue(itemNuevo.precioCompraPromedio || 0);
+                        const valorizacionAnterior = parseNumericValue(itemAnterior.valorizacionCompra || 0);
+                        const valorizacionNueva = parseNumericValue(itemNuevo.valorizacionCompra || 0);
+                        const cambioExistencia = Math.abs(existenciaAnterior - existenciaNueva);
+                        const cambioPrecio = Math.abs(precioAnterior - precioNuevo);
+                        const cambioValorizacion = Math.abs(valorizacionAnterior - valorizacionNueva);
+                        
+                        // Log detallado para cada nemotécnico
+                        console.log(`[getBalanceAcciones] Comparando ${nemotecnicoNuevo}: existencia=${existenciaNueva} (antes: ${existenciaAnterior}, cambio: ${cambioExistencia}), precio=${precioNuevo} (antes: ${precioAnterior}, cambio: ${cambioPrecio}), valorizacion=${valorizacionNueva} (antes: ${valorizacionAnterior}, cambio: ${cambioValorizacion})`);
+                        
+                        // Usar umbrales más sensibles y considerar cualquier cambio significativo
+                        // Cambio en existencia (aunque sea pequeño, si hay cambio, es relevante)
+                        // Cambio en precio mayor a 0.001 (más sensible)
+                        // Cambio en valorización mayor a 0.01 (más sensible)
                         if (
-                            Math.abs(parseFloat(itemAnterior.existencia) - parseFloat(itemNuevo.existencia)) > 0.001 ||
-                            Math.abs(parseFloat(itemAnterior.precioCompraPromedio || 0) - parseFloat(itemNuevo.precioCompraPromedio || 0)) > 0.01 ||
-                            Math.abs(parseFloat(itemAnterior.valorizacionCompra || 0) - parseFloat(itemNuevo.valorizacionCompra || 0)) > 0.01
+                            cambioExistencia > 0.0001 ||  // Más sensible para existencia
+                            cambioPrecio > 0.001 ||      // Más sensible para precio
+                            cambioValorizacion > 0.01    // Mantener para valorización
                         ) {
                             modificadas.add(itemNuevo.nemotecnico);
+                            console.log(`[getBalanceAcciones] ✓ FILA MODIFICADA DETECTADA - ${itemNuevo.nemotecnico}: existencia=${existenciaNueva} (antes: ${existenciaAnterior}, cambio: ${cambioExistencia}), precio=${precioNuevo} (antes: ${precioAnterior}, cambio: ${cambioPrecio}), valorizacion=${valorizacionNueva} (antes: ${valorizacionAnterior}, cambio: ${cambioValorizacion})`);
+                        } else {
+                            console.log(`[getBalanceAcciones] ✗ Sin cambios significativos para ${nemotecnicoNuevo}`);
                         }
                     }
                 });
+                
+                // También verificar si hay filas en el balance anterior que ya no están (podrían haberse eliminado o neteado)
+                balanceAnterior.forEach(itemAnterior => {
+                    const nemotecnicoAnterior = (itemAnterior.nemotecnico || '').trim().toUpperCase();
+                    const itemNuevo = balanceData.find(item => 
+                        (item.nemotecnico || '').trim().toUpperCase() === nemotecnicoAnterior
+                    );
+                    if (!itemNuevo) {
+                        // Fila que desapareció (puede ser que se neteó completamente)
+                        console.log(`[getBalanceAcciones] FILA DESAPARECIDA - ${itemAnterior.nemotecnico}: existencia anterior=${itemAnterior.existencia}`);
+                    }
+                });
+                
+                console.log(`[getBalanceAcciones] Total filas modificadas detectadas: ${modificadas.size}`, Array.from(modificadas));
                 actualizarFilasModificadas(modificadas);
             }
         } catch (err) {
@@ -177,6 +304,20 @@ const BalanceAcciones = ({ darkMode }) => {
             if (response.ok) {
                 const data = await response.json();
                 setHistorial(data);
+                
+                // Cargar operaciones del último CSV para el tooltip
+                const ultimoCSV = data.find(item => item.tipo === 'csv');
+                if (ultimoCSV) {
+                    try {
+                        const operacionesResponse = await fetch(`${API_URL}/historial-operaciones/${ultimoCSV.id}`);
+                        if (operacionesResponse.ok) {
+                            const operacionesData = await operacionesResponse.json();
+                            setOperacionesUltimoCSV(operacionesData);
+                        }
+                    } catch (e) {
+                        console.error('Error al cargar operaciones del último CSV:', e);
+                    }
+                }
             }
         } catch (err) {
             console.error('Error al cargar historial:', err);
@@ -206,10 +347,9 @@ const BalanceAcciones = ({ darkMode }) => {
                         throw new Error(errorData.error || 'Error al eliminar el archivo');
                     }
 
-                    // Si se elimina un CSV, limpiar filas modificadas y recargar balance e historial
-                    // Esto hará que las filas vuelvan a su estado normal
-                    actualizarFilasModificadas(new Set());
-                    await cargarBalance();
+                    // Si se elimina un CSV, recargar balance con comparación de cambios
+                    // para detectar qué filas cambiaron al eliminar el CSV
+                    await cargarBalance(true);
                     await cargarHistorial();
                     mostrarNotificacion('Archivo eliminado exitosamente', 'success');
                 } catch (err) {
@@ -258,15 +398,15 @@ const BalanceAcciones = ({ darkMode }) => {
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
             
-            alert('Archivo original descargado exitosamente');
+            mostrarNotificacion('Archivo original descargado exitosamente', 'success');
         } catch (err) {
             setError(err.message);
             console.error('Error al descargar archivo original:', err);
-            alert(`Error al descargar archivo original: ${err.message}`);
+            mostrarNotificacion(`Error al descargar archivo original: ${err.message}`, 'error');
         } finally {
             setLoading(false);
         }
-    }, [API_URL]);
+    }, [API_URL, mostrarNotificacion]);
 
     // Función para cargar operaciones del historial y abrir modal
     const verOperaciones = useCallback(async (historialId) => {
@@ -279,23 +419,87 @@ const BalanceAcciones = ({ darkMode }) => {
             const operaciones = await response.json();
             
             // Convertir operaciones al formato esperado por el modal
-            const operacionesFormateadas = operaciones.map(op => ({
-                id: op.id,
-                Fecha: op.fecha ? (typeof op.fecha === 'string' ? op.fecha.replace(/-/g, '') : 
-                    `${op.fecha.getFullYear()}${String(op.fecha.getMonth() + 1).padStart(2, '0')}${String(op.fecha.getDate()).padStart(2, '0')}`) : '',
-                Nemotecnico: op.nemotecnico || '',
-                Cantidad: op.cantidad || '',
-                Precio: op.precio || '',
-                Monto: op.monto || '',
-                Tipo: op.tipo_operacion || '',
-                CorredorVende: op.tipo_operacion === 'Compra' ? '' : (op.nombre_corredor || ''),
-                CorredorCompra: op.tipo_operacion === 'Compra' ? (op.nombre_corredor || '') : '',
-                CodigoVende: op.tipo_operacion === 'Compra' ? '' : (op.codigo_corredor || ''),
-                CodigoCompra: op.tipo_operacion === 'Compra' ? (op.codigo_corredor || '') : '',
-                Condicion: 'CN',
-                Compra: op.tipo_operacion === 'Compra' ? '832' : '',
-                esNuevaFila: false
-            }));
+            const operacionesFormateadas = operaciones.map(op => {
+                // Normalizar fecha a formato YYYYMMDD
+                let fechaFormateada = '';
+                if (op.fecha) {
+                    try {
+                        if (typeof op.fecha === 'string') {
+                            // Si es string ISO (ej: "2025-10-28T03:00:00.000Z") o YYYY-MM-DD
+                            if (op.fecha.includes('T') || op.fecha.match(/^\d{4}-\d{2}-\d{2}/)) {
+                                const fechaDate = new Date(op.fecha);
+                                if (!isNaN(fechaDate.getTime())) {
+                                    fechaFormateada = `${fechaDate.getFullYear()}${String(fechaDate.getMonth() + 1).padStart(2, '0')}${String(fechaDate.getDate()).padStart(2, '0')}`;
+                                }
+                            } else {
+                                // Si ya está en formato YYYYMMDD, usar directamente
+                                const fechaLimpia = op.fecha.replace(/-/g, '').replace(/[^0-9]/g, '');
+                                if (fechaLimpia.length >= 8) {
+                                    fechaFormateada = fechaLimpia.substring(0, 8);
+                                }
+                            }
+                        } else if (op.fecha instanceof Date) {
+                            if (!isNaN(op.fecha.getTime())) {
+                                fechaFormateada = `${op.fecha.getFullYear()}${String(op.fecha.getMonth() + 1).padStart(2, '0')}${String(op.fecha.getDate()).padStart(2, '0')}`;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error al formatear fecha:', e, op.fecha);
+                    }
+                }
+                
+                // Asegurar que cantidad, precio y monto sean números, no strings
+                let cantidad = op.cantidad;
+                if (typeof cantidad === 'string') {
+                    cantidad = parseNumericValue(cantidad);
+                } else if (typeof cantidad === 'number') {
+                    cantidad = Number.isFinite(cantidad) ? cantidad : 0;
+                } else {
+                    cantidad = 0;
+                }
+                
+                let precio = op.precio;
+                if (typeof precio === 'string') {
+                    // Si es string, puede venir como "21.01" o "21,01" o "2101"
+                    // Primero intentar parsear directamente
+                    precio = parseNumericValue(precio);
+                } else if (typeof precio === 'number') {
+                    precio = Number.isFinite(precio) ? precio : 0;
+                } else {
+                    precio = 0;
+                }
+                
+                let monto = op.monto;
+                if (typeof monto === 'string') {
+                    monto = parseNumericValue(monto);
+                } else if (typeof monto === 'number') {
+                    monto = Number.isFinite(monto) ? monto : 0;
+                } else {
+                    monto = 0;
+                }
+                
+                // Debug: loggear precios problemáticos
+                if (precio > 100 && precio < 10000 && precio % 1 === 0) {
+                    console.warn(`[verOperaciones] Precio sospechoso detectado: ${precio} para nemotécnico ${op.nemotecnico}. Valor original: ${op.precio} (tipo: ${typeof op.precio})`);
+                }
+                
+                return {
+                    id: op.id,
+                    Fecha: fechaFormateada,
+                    Nemotecnico: op.nemotecnico || '',
+                    Cantidad: cantidad, // Guardar como número
+                    Precio: precio, // Guardar como número
+                    Monto: monto, // Guardar como número
+                    Tipo: op.tipo_operacion || '',
+                    CorredorVende: op.tipo_operacion === 'Compra' ? '' : (op.nombre_corredor || ''),
+                    CorredorCompra: op.tipo_operacion === 'Compra' ? (op.nombre_corredor || '') : '',
+                    CodigoVende: op.tipo_operacion === 'Compra' ? '' : (op.codigo_corredor || ''),
+                    CodigoCompra: op.tipo_operacion === 'Compra' ? (op.codigo_corredor || '') : '',
+                    Condicion: 'CN',
+                    Compra: op.tipo_operacion === 'Compra' ? '832' : '',
+                    esNuevaFila: false
+                };
+            });
             
             setOperacionesModal(operacionesFormateadas);
             setHistorialIdModal(historialId);
@@ -361,15 +565,15 @@ const BalanceAcciones = ({ darkMode }) => {
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
             
-            alert('CSV transformado descargado exitosamente');
+            mostrarNotificacion('CSV transformado descargado exitosamente', 'success');
         } catch (err) {
             setError(err.message);
             console.error('Error al descargar CSV transformado:', err);
-            alert(`Error al descargar CSV transformado: ${err.message}`);
+            mostrarNotificacion(`Error al descargar CSV transformado: ${err.message}`, 'error');
         } finally {
             setLoading(false);
         }
-    }, [API_URL]);
+    }, [API_URL, mostrarNotificacion]);
 
     useEffect(() => {
         cargarBalance();
@@ -380,6 +584,35 @@ const BalanceAcciones = ({ darkMode }) => {
     useEffect(() => {
         balanceRef.current = balance;
     }, [balance]);
+
+    // Sincronizar altura del historial con la tabla de acciones
+    useEffect(() => {
+        const syncHeights = () => {
+            if (tableSectionRef.current && historialSectionRef.current) {
+                const tableHeight = tableSectionRef.current.offsetHeight;
+                historialSectionRef.current.style.maxHeight = `${tableHeight}px`;
+            }
+        };
+
+        syncHeights();
+        window.addEventListener('resize', syncHeights);
+        
+        // Usar MutationObserver para detectar cambios en el contenido
+        const observer = new MutationObserver(syncHeights);
+        if (tableSectionRef.current) {
+            observer.observe(tableSectionRef.current, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['style', 'class']
+            });
+        }
+
+        return () => {
+            window.removeEventListener('resize', syncHeights);
+            observer.disconnect();
+        };
+    }, [balance, historial]);
 
     const onDropBalanceBase = useCallback(async (acceptedFiles) => {
         if (acceptedFiles.length === 0) return;
@@ -421,6 +654,12 @@ const BalanceAcciones = ({ darkMode }) => {
     const procesarCSV = useCallback(async (file) => {
         setUploadingBalance(true);
         setError(null);
+
+        // Guardar balance actual ANTES de procesar el CSV para comparación posterior
+        const balanceAntesDeProcesar = balanceRef.current.length > 0 
+            ? JSON.parse(JSON.stringify(balanceRef.current)) 
+            : null;
+        console.log(`[procesarCSV] Balance guardado antes de procesar: ${balanceAntesDeProcesar ? balanceAntesDeProcesar.length : 0} items`);
 
         try {
             // Leer el archivo como ArrayBuffer para procesarlo igual que en OperacionesAFinix
@@ -585,8 +824,9 @@ const BalanceAcciones = ({ darkMode }) => {
                         // Limpiar cualquier carácter no alfanumérico al final
                         Nemotecnico = Nemotecnico.replace(/[^A-Za-z0-9]+$/, '').trim();
                         const Compra = fila.S || '0';
-                        const Monto = (parseFloat(String(Cantidad).replace(/\./g, '').replace(',', '.')) || 0) * 
-                                     (parseFloat(String(Precio).replace(/\./g, '').replace(',', '.')) || 0);
+                        const cantidadParseada = parseNumericValue(Cantidad);
+                        const precioParseado = parseNumericValue(Precio);
+                        const Monto = cantidadParseada * precioParseado;
 
                         const esCompra = Compra === "832";
                         const codigoVendeNum = parseInt(CodigoVende) || 0;
@@ -602,13 +842,15 @@ const BalanceAcciones = ({ darkMode }) => {
                         );
                         const fechaPago = calcularFechaPago(fecha, Condicion);
 
+                        // Parsear cantidad y precio correctamente antes de enviar
+
                         const operacion = {
                             Fecha: Fecha, // Enviar como string YYYYMMDD, no como objeto Date
                             Codigo: parseFloat(esCompra ? CodigoCompra : CodigoVende) || 0,
                             'Tipo Operación': esCompra ? `Compra ${Nemotecnico.toLowerCase().trim()}` : `Venta ${Nemotecnico.toLowerCase().trim()}`,
                             Nemotecnico: Nemotecnico,
-                            Cantidad: Cantidad || '0',
-                            Precio: Precio || '0',
+                            Cantidad: cantidadParseada, // Enviar como número, no como string
+                            Precio: precioParseado, // Enviar como número, no como string
                             'Dcto.': 0,
                             Comision: 0,
                             Iva: 0,
@@ -620,7 +862,7 @@ const BalanceAcciones = ({ darkMode }) => {
                             Tipo: esCompra ? 'Compra' : 'Venta'
                         };
                         
-                            console.log(`Operación ${index + 1}: Nemotécnico=${Nemotecnico}, Tipo=${operacion.Tipo}, Cantidad=${Cantidad}, Precio=${Precio}`);
+                            console.log(`[procesarCSV] Operación ${index + 1}: Nemotécnico="${Nemotecnico}" (original: "${fila.L}"), Tipo=${operacion.Tipo}, Cantidad=${cantidadParseada} (original: "${Cantidad}"), Precio=${precioParseado} (original: "${Precio}"), Monto=${Monto}`);
                             
                             operaciones.push(operacion);
                         } catch (err) {
@@ -628,7 +870,21 @@ const BalanceAcciones = ({ darkMode }) => {
                         }
                     });
                     
-                    console.log(`Total de operaciones procesadas: ${operaciones.length}`);
+                    console.log(`[procesarCSV] Total de operaciones procesadas: ${operaciones.length}`);
+                    // Contar operaciones por nemotécnico
+                    const operacionesPorNemotecnico = {};
+                    operaciones.forEach(op => {
+                        const nemo = op.Nemotecnico || 'SIN_NEMOTECNICO';
+                        if (!operacionesPorNemotecnico[nemo]) {
+                            operacionesPorNemotecnico[nemo] = { compras: 0, ventas: 0 };
+                        }
+                        if (op.Tipo === 'Compra') {
+                            operacionesPorNemotecnico[nemo].compras++;
+                        } else {
+                            operacionesPorNemotecnico[nemo].ventas++;
+                        }
+                    });
+                    console.log(`[procesarCSV] Operaciones por nemotécnico:`, operacionesPorNemotecnico);
 
                     // Guardar operaciones en la base de datos (enviar archivo como FormData)
                     const formData = new FormData();
@@ -648,10 +904,30 @@ const BalanceAcciones = ({ darkMode }) => {
 
                     const result = await response.json();
                     
+                    // Guardar el balance anterior en el ref antes de cargar el nuevo
+                    // para que cargarBalance pueda compararlo correctamente
+                    if (balanceAntesDeProcesar && balanceAntesDeProcesar.length > 0) {
+                        balanceRef.current = balanceAntesDeProcesar;
+                        console.log(`[procesarCSV] Balance anterior guardado en ref para comparación: ${balanceAntesDeProcesar.length} items`);
+                    }
+                    
                     // Recargar balance e historial (con comparación de cambios)
                     // Esto actualizará automáticamente la tabla
                     await cargarBalance(true);
                     await cargarHistorial();
+                    
+                    // Cargar operaciones del último CSV para el tooltip
+                    if (result.historialId) {
+                        try {
+                            const operacionesResponse = await fetch(`${API_URL}/historial-operaciones/${result.historialId}`);
+                            if (operacionesResponse.ok) {
+                                const operacionesData = await operacionesResponse.json();
+                                setOperacionesUltimoCSV(operacionesData);
+                            }
+                        } catch (e) {
+                            console.error('Error al cargar operaciones del último CSV:', e);
+                        }
+                    }
                     
                     alert(`Archivo CSV procesado exitosamente. Se guardaron ${result.saved} operaciones.`);
                 } catch (err) {
@@ -702,11 +978,22 @@ const BalanceAcciones = ({ darkMode }) => {
         multiple: false,
     });
 
-    const formatearNumero = (numero) => {
-        if (numero === null || numero === undefined || isNaN(numero)) return '0';
+
+    const formatearPrecio = (numero) => {
+        if (numero === null || numero === undefined || isNaN(numero)) return '$0';
+        // Redondear a 2 decimales
+        const numeroRedondeado = Math.round(parseFloat(numero) * 100) / 100;
+        return '$' + numeroRedondeado.toLocaleString('es-CL', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    };
+
+    const formatearMoneda = (numero) => {
+        if (numero === null || numero === undefined || isNaN(numero)) return '$0';
         // Redondear a entero (sin decimales)
         const numeroRedondeado = Math.round(parseFloat(numero));
-        return numeroRedondeado.toLocaleString('es-CL', {
+        return '$' + numeroRedondeado.toLocaleString('es-CL', {
             minimumFractionDigits: 0,
             maximumFractionDigits: 0
         });
@@ -919,7 +1206,28 @@ const BalanceAcciones = ({ darkMode }) => {
         let fechaFormateada = '';
         if (ultimoCSV && ultimoCSV.fechaArchivo) {
             // Formatear fecha de YYYY-MM-DD a DD/MM/YYYY
-            const fecha = new Date(ultimoCSV.fechaArchivo);
+            // Parsear la fecha correctamente para evitar problemas de timezone
+            let fecha;
+            if (typeof ultimoCSV.fechaArchivo === 'string') {
+                // Si es string en formato YYYY-MM-DD, parsear directamente
+                const partes = ultimoCSV.fechaArchivo.split('-');
+                if (partes.length === 3) {
+                    // Usar métodos locales para crear la fecha (evita desplazamiento UTC)
+                    fecha = new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
+                } else {
+                    // Si no es formato YYYY-MM-DD, intentar parsear y normalizar
+                    const fechaTemp = new Date(ultimoCSV.fechaArchivo);
+                    fecha = new Date(fechaTemp.getFullYear(), fechaTemp.getMonth(), fechaTemp.getDate());
+                }
+            } else if (ultimoCSV.fechaArchivo instanceof Date) {
+                // Si es Date object, usar métodos locales para extraer año, mes y día
+                fecha = new Date(ultimoCSV.fechaArchivo.getFullYear(), ultimoCSV.fechaArchivo.getMonth(), ultimoCSV.fechaArchivo.getDate());
+            } else {
+                // Último recurso: crear Date y normalizar
+                const fechaTemp = new Date(ultimoCSV.fechaArchivo);
+                fecha = new Date(fechaTemp.getFullYear(), fechaTemp.getMonth(), fechaTemp.getDate());
+            }
+            
             const dia = String(fecha.getDate()).padStart(2, '0');
             const mes = String(fecha.getMonth() + 1).padStart(2, '0');
             const año = fecha.getFullYear();
@@ -949,18 +1257,18 @@ const BalanceAcciones = ({ darkMode }) => {
         // Agregar fila vacía
         worksheet.addRow([]);
 
-        // Definir columnas con anchos
-        worksheet.columns = [
-            { header: 'N°', key: 'numero', width: 6 },
-            { header: 'Tipo Operación', key: 'tipoOperacion', width: 18 },
-            { header: 'INSTRUMENTO', key: 'instrumento', width: 15 },
-            { header: 'EXISTENCIA', key: 'existencia', width: 15 },
-            { header: 'PRECIO COMPRA', key: 'precioCompra', width: 15 },
-            { header: 'PRECIO CIERRE', key: 'precioCierre', width: 15 },
-            { header: 'VALORIZACIÓN COMPRA', key: 'valorizacionCompra', width: 20 },
-            { header: 'VALORIZACIÓN CIERRE', key: 'valorizacionCierre', width: 20 },
-            { header: 'AJUSTE A MERCADO', key: 'ajusteMercado', width: 18 }
-        ];
+        // Agregar encabezados manualmente en la fila 3
+        const headerRow = worksheet.addRow([
+            'N°',
+            'Tipo Operación',
+            'INSTRUMENTO',
+            'EXISTENCIA',
+            'PRECIO COMPRA',
+            'PRECIO CIERRE',
+            'VALORIZACIÓN COMPRA',
+            'VALORIZACIÓN CIERRE',
+            'AJUSTE A MERCADO'
+        ]);
 
         // Estilo para encabezados
         const headerStyle = {
@@ -979,11 +1287,24 @@ const BalanceAcciones = ({ darkMode }) => {
             }
         };
 
-        // Aplicar estilo a encabezados (ahora en la fila 3 después del título y fila vacía)
-        worksheet.getRow(3).eachCell((cell) => {
+        // Aplicar estilo a encabezados
+        headerRow.eachCell((cell) => {
             cell.style = headerStyle;
         });
-        worksheet.getRow(3).height = 25;
+        headerRow.height = 25;
+
+        // Definir anchos de columna
+        worksheet.columns = [
+            { width: 6 },   // N°
+            { width: 18 },  // Tipo Operación
+            { width: 15 },  // INSTRUMENTO
+            { width: 15 },  // EXISTENCIA
+            { width: 15 },  // PRECIO COMPRA
+            { width: 15 },  // PRECIO CIERRE
+            { width: 20 },  // VALORIZACIÓN COMPRA
+            { width: 20 },  // VALORIZACIÓN CIERRE
+            { width: 18 }   // AJUSTE A MERCADO
+        ];
 
         // Agregar datos usando arrays para mantener el orden correcto
         balanceOrdenado.forEach((item, index) => {
@@ -1143,37 +1464,18 @@ const BalanceAcciones = ({ darkMode }) => {
                 </div>
             ) : (
                 <div className="balance-content-wrapper">
-                    <div className="balance-table-section">
-                        <div className="balance-table-actions">
-                            <div className="balance-info-text">
-                                {(() => {
-                                    const balanceBase = historial.find(item => item.tipo === 'balance_base');
-                                    const fechaCarga = balanceBase?.fechaProcesamiento 
-                                        ? new Date(balanceBase.fechaProcesamiento).toLocaleDateString('es-CL', { 
-                                            day: '2-digit', 
-                                            month: '2-digit', 
-                                            year: 'numeric' 
-                                        })
-                                        : null;
-                                    return (
-                                        <p>
-                                            Cartera base Acciones nacionales {fechaCarga ? `cargada el ${fechaCarga}` : 'cargada'}, se actualiza manualmente subiendo el csv enviado por BCS.
-                                        </p>
-                                    );
-                                })()}
+                    <div className="balance-table-section" ref={tableSectionRef}>
+                        {nemotecnicosNeteados.length > 0 && (
+                            <div className="balance-advertencia-neteo">
+                                <span className="advertencia-icono">⚠️</span>
+                                <span className="advertencia-texto">
+                                    <strong>Advertencia:</strong> Las siguientes operaciones se netearon (existencia final = 0) y no aparecen en la tabla: <strong>{nemotecnicosNeteados.join(', ')}</strong>
+                                </span>
                             </div>
-                            <div className="balance-actions-buttons">
-                                <button
-                                    onClick={() => {
-                                        // No limpiar filas modificadas al actualizar, solo recargar balance
-                                        cargarBalance();
-                                    }}
-                                    className="balance-icon-button refresh"
-                                    disabled={loading}
-                                    title="Actualizar balance"
-                                >
-                                    <FontAwesomeIcon icon={faSync} spin={loading} />
-                                </button>
+                        )}
+                        <div className="balance-table-header">
+                            <h2 className="balance-table-title">Cartera Acciones Nacionales (CLP)</h2>
+                            <div className="balance-table-top-buttons">
                                 <button
                                     onClick={descargarExcel}
                                     className="balance-icon-button download"
@@ -1184,76 +1486,60 @@ const BalanceAcciones = ({ darkMode }) => {
                                 </button>
                             </div>
                         </div>
-                        {nemotecnicosNeteados.length > 0 && (
-                            <div className="balance-advertencia-neteo">
-                                <span className="advertencia-icono">⚠️</span>
-                                <span className="advertencia-texto">
-                                    <strong>Advertencia:</strong> Las siguientes operaciones se netearon (existencia final = 0) y no aparecen en la tabla: <strong>{nemotecnicosNeteados.join(', ')}</strong>
-                                </span>
-                            </div>
-                        )}
-                        {filasModificadas.size > 0 && (
-                            <div className="filas-modificadas-leyenda">
-                                <span className="leyenda-indicador"></span>
-                                <span className="leyenda-texto">
-                                    {filasModificadas.size} {filasModificadas.size === 1 ? 'fila modificada' : 'filas modificadas'} en la última subida de operaciones
-                                </span>
-                            </div>
-                        )}
                         <div className="balance-acciones-table-container">
                             <table className="balance-acciones-table">
                             <thead>
                                 <tr>
                                     <th>N°</th>
-                                    <th>Tipo Operación</th>
+                                    <th className="col-tipo-operacion">Tipo Operación</th>
                                     <th 
                                         className="sortable" 
                                         onClick={() => handleSort('nemotecnico')}
                                         title="Ordenar por INSTRUMENTO"
                                     >
-                                        INSTRUMENTO {getSortIcon('nemotecnico')}
+                                        Instrumento {getSortIcon('nemotecnico')}
                                     </th>
                                     <th 
                                         className="sortable" 
                                         onClick={() => handleSort('existencia')}
                                         title="Ordenar por EXISTENCIA"
                                     >
-                                        EXISTENCIA {getSortIcon('existencia')}
+                                        Existencia {getSortIcon('existencia')}
                                     </th>
                                     <th 
                                         className="sortable" 
                                         onClick={() => handleSort('precioCompra')}
                                         title="Ordenar por PRECIO COMPRA"
                                     >
-                                        PRECIO COMPRA {getSortIcon('precioCompra')}
+                                        Precio Compra {getSortIcon('precioCompra')}
                                     </th>
                                     <th 
                                         className="sortable" 
                                         onClick={() => handleSort('precioCierre')}
                                         title="Ordenar por PRECIO CIERRE"
                                     >
-                                        PRECIO CIERRE {getSortIcon('precioCierre')}
+                                        Precio Cierre {getSortIcon('precioCierre')}
                                     </th>
                                     <th 
                                         className="sortable" 
                                         onClick={() => handleSort('valorizacionCompra')}
                                         title="Ordenar por VALORIZACIÓN COMPRA"
                                     >
-                                        VALORIZACIÓN COMPRA {getSortIcon('valorizacionCompra')}
+                                        Valorización Compra {getSortIcon('valorizacionCompra')}
                                     </th>
                                     <th 
                                         className="sortable" 
                                         onClick={() => handleSort('valorizacionCierre')}
                                         title="Ordenar por VALORIZACIÓN CIERRE"
                                     >
-                                        VALORIZACIÓN CIERRE {getSortIcon('valorizacionCierre')}
+                                        Valorización Cierre {getSortIcon('valorizacionCierre')}
                                     </th>
                                     <th 
                                         className="sortable" 
                                         onClick={() => handleSort('ajusteMercado')}
                                         title="Ordenar por AJUSTE A MERCADO"
                                     >
-                                        AJUSTE A MERCADO {getSortIcon('ajusteMercado')}
+                                        Ajuste A Mercado {getSortIcon('ajusteMercado')}
                                     </th>
                                     <th>Acciones</th>
                                 </tr>
@@ -1261,7 +1547,7 @@ const BalanceAcciones = ({ darkMode }) => {
                             <tbody>
                                 {balance.length === 0 ? (
                                     <tr>
-                                        <td colSpan="10" style={{ textAlign: 'center', padding: '2rem', color: '#666' }}>
+                                        <td colSpan="10">
                                             No hay operaciones registradas. Sube un archivo Excel con el balance base para comenzar.
                                         </td>
                                     </tr>
@@ -1273,9 +1559,50 @@ const BalanceAcciones = ({ darkMode }) => {
                                     
                                     const esModificada = filasModificadas.has(item.nemotecnico);
                                     
+                                    // Generar mensaje del tooltip para filas modificadas
+                                    const generarMensajeTooltip = (nemotecnico) => {
+                                        if (!esModificada || operacionesUltimoCSV.length === 0) return null;
+                                        
+                                        const operacionesNemotecnico = operacionesUltimoCSV.filter(op => 
+                                            op.nemotecnico && op.nemotecnico.trim().toUpperCase() === nemotecnico.trim().toUpperCase()
+                                        );
+                                        
+                                        if (operacionesNemotecnico.length === 0) return null;
+                                        
+                                        const compras = operacionesNemotecnico.filter(op => op.tipo_operacion === 'Compra');
+                                        const ventas = operacionesNemotecnico.filter(op => op.tipo_operacion === 'Venta');
+                                        
+                                        const cantidadCompra = compras.reduce((sum, op) => sum + (parseFloat(op.cantidad) || 0), 0);
+                                        const cantidadVenta = ventas.reduce((sum, op) => sum + (parseFloat(op.cantidad) || 0), 0);
+                                        const montoCompra = compras.reduce((sum, op) => sum + (parseFloat(op.monto) || 0), 0);
+                                        const montoVenta = ventas.reduce((sum, op) => sum + (parseFloat(op.monto) || 0), 0);
+                                        
+                                        const partes = [];
+                                        if (cantidadCompra > 0) {
+                                            partes.push(`se compraron ${formatearCantidad(cantidadCompra)} acciones por un monto de ${formatearMoneda(montoCompra)}`);
+                                        }
+                                        if (cantidadVenta > 0) {
+                                            partes.push(`se vendieron ${formatearCantidad(cantidadVenta)} acciones por un monto de ${formatearMoneda(montoVenta)}`);
+                                        }
+                                        
+                                        if (partes.length === 0) return null;
+                                        
+                                        return `En último día cargado ${partes.join(' y ')} de la acción ${nemotecnico}`;
+                                    };
+                                    
+                                    const mensajeTooltip = generarMensajeTooltip(item.nemotecnico);
+                                    
                                     return (
-                                        <tr key={item.nemotecnico} className={esModificada ? 'fila-modificada' : ''}>
-                                            <td>{index + 1}</td>
+                                        <tr 
+                                            key={item.nemotecnico} 
+                                            className={esModificada ? 'fila-modificada' : ''}
+                                        >
+                                            <td 
+                                                data-tooltip={mensajeTooltip}
+                                                style={esModificada ? { position: 'relative' } : {}}
+                                            >
+                                                {index + 1}
+                                            </td>
                                             <td>{item.tipoOperacion || (item.existencia < 0 ? 'Corto' : 'Cartera')}</td>
                                             <td>{item.nemotecnico}</td>
                                             <td className={`number ${item.existencia < 0 ? 'negative' : ''}`}>
@@ -1307,7 +1634,7 @@ const BalanceAcciones = ({ darkMode }) => {
                                                         className="edit-input-inline"
                                                     />
                                                 ) : (
-                                                    formatearNumero(item.precioCompraPromedio)
+                                                    formatearPrecio(item.precioCompraPromedio)
                                                 )}
                                             </td>
                                             <td className="number">
@@ -1325,18 +1652,18 @@ const BalanceAcciones = ({ darkMode }) => {
                                                     />
                                                 ) : (
                                                     <span className={`precio-cierre-display ${precioCierre < 0 ? 'negative' : ''}`}>
-                                                        {precioCierre !== 0 ? formatearNumero(precioCierre) : '0'}
+                                                        {precioCierre !== 0 ? formatearPrecio(precioCierre) : '$0'}
                                                     </span>
                                                 )}
                                             </td>
                                             <td className={`number ${item.valorizacionCompra < 0 ? 'negative' : ''}`}>
-                                                {formatearNumero(item.valorizacionCompra)}
+                                                {formatearMoneda(item.valorizacionCompra)}
                                             </td>
                                             <td className={`number ${valorizacionCierre < 0 ? 'negative' : ''}`}>
-                                                {formatearNumero(valorizacionCierre)}
+                                                {formatearMoneda(valorizacionCierre)}
                                             </td>
                                             <td className={`number ${ajusteMercado < 0 ? 'negative' : ''}`}>
-                                                {formatearNumero(ajusteMercado)}
+                                                {formatearMoneda(ajusteMercado)}
                                             </td>
                                             <td>
                                                 {editingItem === item.nemotecnico ? (
@@ -1383,16 +1710,18 @@ const BalanceAcciones = ({ darkMode }) => {
                             {balance.length > 0 && (
                                 <tfoot>
                                     <tr className="total-row">
-                                        <td colSpan="2">Valorizacion de Cartera Acciones</td>
-                                        <td colSpan="4"></td>
+                                        <td colSpan="5"></td>
+                                        <td className="number">
+                                            TOTAL
+                                        </td>
                                         <td className={`number ${calcularTotal('valorizacionCompra') < 0 ? 'negative' : ''}`}>
-                                            {formatearNumero(calcularTotal('valorizacionCompra'))}
+                                            {formatearMoneda(calcularTotal('valorizacionCompra'))}
                                         </td>
                                         <td className={`number ${calcularTotal('valorizacionCierre') < 0 ? 'negative' : ''}`}>
-                                            {formatearNumero(calcularTotal('valorizacionCierre'))}
+                                            {formatearMoneda(calcularTotal('valorizacionCierre'))}
                                         </td>
                                         <td className={`number ${calcularTotal('ajusteMercado') < 0 ? 'negative' : ''}`}>
-                                            {formatearNumero(calcularTotal('ajusteMercado'))}
+                                            {formatearMoneda(calcularTotal('ajusteMercado'))}
                                         </td>
                                         <td></td>
                                     </tr>
@@ -1416,15 +1745,20 @@ const BalanceAcciones = ({ darkMode }) => {
                                         : 'Arrastra un archivo Excel o CSV aquí o haz clic para seleccionar'}
                                 </p>
                                 <small>
-                                    <strong>Excel:</strong> Archivo "Control Carteras y Balances" con balance base (columnas: TIPO OPERACIÓN, INSTRUMENTO, EXISTENCIA, PRECIO COMPRA, etc.)<br />
+                                    <strong>Excel:</strong> Archivo "Control Carteras y Balances" con balance base<br />
                                     <strong>CSV:</strong> Archivos CSV generados por BCS para actualizar las operaciones diarias
                                 </small>
                             </div>
-                            {uploadingBalance && <p className="uploading-status">Procesando archivo...</p>}
+                            {uploadingBalance && (
+                                <div className="uploading-status" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                    <FontAwesomeIcon icon={faSpinner} spin />
+                                    <span>Procesando archivo...</span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Historial de archivos */}
-                        <div className="balance-historial-section">
+                        <div className="balance-historial-section" ref={historialSectionRef}>
                             <h3>Historial de Archivos</h3>
                             {confirmDialog && (
                                 <div className="historial-confirm-dialog">
@@ -1459,10 +1793,11 @@ const BalanceAcciones = ({ darkMode }) => {
                                     <table className="historial-table">
                                         <thead>
                                             <tr>
+                                                <th></th>
                                                 <th>Archivo</th>
                                                 <th>Tipo</th>
                                                 <th>Fecha</th>
-                                                <th>Operaciones</th>
+                                                <th>Ops</th>
                                                 <th>Acciones</th>
                                             </tr>
                                         </thead>
@@ -1470,7 +1805,7 @@ const BalanceAcciones = ({ darkMode }) => {
                                             {historial.map((item) => (
                                                 <tr key={item.id}>
                                                     <td>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                                                             <button
                                                                 onClick={() => descargarArchivoOriginal(item.id, item.nombreArchivo)}
                                                                 className="file-icon-button"
@@ -1489,7 +1824,7 @@ const BalanceAcciones = ({ darkMode }) => {
                                                                 <button
                                                                     onClick={() => verOperaciones(item.id)}
                                                                     className="view-operations-button"
-                                                                    title="Ver y editar operaciones"
+                                                                    title="Ver y editar operaciones del archivo"
                                                                     style={{
                                                                         background: 'none',
                                                                         border: 'none',
@@ -1501,8 +1836,10 @@ const BalanceAcciones = ({ darkMode }) => {
                                                                     <FontAwesomeIcon icon={faEye} />
                                                                 </button>
                                                             )}
-                                                            <span>{item.nombreArchivo}</span>
                                                         </div>
+                                                    </td>
+                                                    <td>
+                                                        <span className="historial-filename">{item.nombreArchivo}</span>
                                                     </td>
                                                     <td>
                                                         <span className={`tipo-badge ${item.tipo}`}>
@@ -1534,9 +1871,9 @@ const BalanceAcciones = ({ darkMode }) => {
                                                         </div>
                                                     </td>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                        ))}
+                                    </tbody>
+                                </table>
                                 )}
                             </div>
                         </div>
@@ -1558,86 +1895,25 @@ const BalanceAcciones = ({ darkMode }) => {
                             </button>
                         </div>
                         <div className="operaciones-modal-body">
-                            <div className="operaciones-modal-actions">
-                                <button
-                                    onClick={() => {
-                                        const nuevaFila = {
-                                            id: null,
-                                            Fecha: new Date().toISOString().slice(0, 10).replace(/-/g, ''),
-                                            Nemotecnico: '',
-                                            Cantidad: '',
-                                            Precio: '',
-                                            Monto: '',
-                                            Tipo: '',
-                                            CorredorVende: '',
-                                            CorredorCompra: '',
-                                            CodigoVende: '',
-                                            CodigoCompra: '',
-                                            Condicion: 'CN',
-                                            Compra: '',
-                                            esNuevaFila: true
-                                        };
-                                        setOperacionesModal(prev => [nuevaFila, ...prev]);
-                                        setFilasEditables(prev => new Set([0, ...Array.from(prev).map(i => i + 1)]));
-                                    }}
-                                    className="operaciones-modal-add-button"
-                                >
-                                    <FontAwesomeIcon icon={faPlus} />
-                                    Agregar Fila
-                                </button>
-                                <button
-                                    onClick={async () => {
-                                        try {
-                                            setLoading(true);
-                                            // Convertir operaciones al formato esperado por el servidor
-                                            const operacionesParaGuardar = operacionesModal.map(op => ({
-                                                id: op.id,
-                                                fecha: op.Fecha ? (op.Fecha.length === 8 ? 
-                                                    `${op.Fecha.substring(0, 4)}-${op.Fecha.substring(4, 6)}-${op.Fecha.substring(6, 8)}` : 
-                                                    op.Fecha) : null,
-                                                nemotecnico: op.Nemotecnico || '',
-                                                cantidad: parseFloat(op.Cantidad?.toString().replace(/\./g, '').replace(',', '.')) || 0,
-                                                precio: parseFloat(op.Precio?.toString().replace(/\./g, '').replace(',', '.')) || 0,
-                                                monto: parseFloat(op.Monto?.toString().replace(/\./g, '').replace(',', '.')) || 0,
-                                                tipo_operacion: op.Tipo || '',
-                                                codigo_corredor: op.Tipo === 'Compra' ? (op.CodigoCompra || 0) : (op.CodigoVende || 0),
-                                                nombre_corredor: op.Tipo === 'Compra' ? (op.CorredorCompra || '') : (op.CorredorVende || '')
-                                            }));
-
-                                            const response = await fetch(`${API_URL}/historial-operaciones/${historialIdModal}`, {
-                                                method: 'POST',
-                                                headers: {
-                                                    'Content-Type': 'application/json',
-                                                },
-                                                body: JSON.stringify({ operaciones: operacionesParaGuardar }),
-                                            });
-
-                                            if (!response.ok) {
-                                                const errorData = await response.json();
-                                                throw new Error(errorData.error || 'Error al guardar operaciones');
-                                            }
-
-                                            // Recargar balance e historial
-                                            await cargarBalance();
-                                            await cargarHistorial();
-                                            
-                                            // Cerrar modal
-                                            setShowOperacionesModal(false);
-                                            alert('Operaciones guardadas correctamente');
-                                        } catch (error) {
-                                            console.error('Error al guardar operaciones:', error);
-                                            alert(`Error al guardar operaciones: ${error.message}`);
-                                        } finally {
-                                            setLoading(false);
-                                        }
-                                    }}
-                                    className="operaciones-modal-add-button"
-                                    style={{ backgroundColor: '#4caf50' }}
-                                >
-                                    <FontAwesomeIcon icon={faCheck} />
-                                    Guardar Cambios
-                                </button>
-                            </div>
+                            {guardandoOperaciones && (
+                                <div style={{ 
+                                    position: 'absolute', 
+                                    top: 0, 
+                                    left: 0, 
+                                    right: 0, 
+                                    bottom: 0, 
+                                    backgroundColor: 'rgba(255, 255, 255, 0.9)', 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center', 
+                                    zIndex: 10,
+                                    flexDirection: 'column',
+                                    gap: '1rem'
+                                }}>
+                                    <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: '2rem', color: 'var(--primary-color)' }} />
+                                    <span style={{ fontSize: '1rem', fontWeight: '600', color: '#333' }}>Guardando operaciones...</span>
+                                </div>
+                            )}
                             <div className="operaciones-modal-table-container">
                                 <table className="operaciones-modal-table">
                                     <thead>
@@ -1654,25 +1930,106 @@ const BalanceAcciones = ({ darkMode }) => {
                                     </thead>
                                     <tbody>
                                         {operacionesModal.map((fila, index) => {
-                                            const fechaBase = fila.Fecha ? new Date(
-                                                fila.Fecha.substring(0, 4),
-                                                parseInt(fila.Fecha.substring(4, 6)) - 1,
-                                                fila.Fecha.substring(6, 8)
-                                            ) : new Date();
+                                            let fechaBase = new Date();
+                                            if (fila.Fecha && String(fila.Fecha).trim().length >= 8) {
+                                                try {
+                                                    const fechaStr = String(fila.Fecha).trim();
+                                                    if (fechaStr.length === 8 && /^\d{8}$/.test(fechaStr)) {
+                                                        const year = parseInt(fechaStr.substring(0, 4));
+                                                        const month = parseInt(fechaStr.substring(4, 6)) - 1;
+                                                        const day = parseInt(fechaStr.substring(6, 8));
+                                                        fechaBase = new Date(year, month, day);
+                                                    } else if (fechaStr.match(/^\d{4}-\d{2}-\d{2}/)) {
+                                                        const parts = fechaStr.split('-');
+                                                        fechaBase = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                                                    } else {
+                                                        fechaBase = new Date(fechaStr);
+                                                    }
+                                                    if (isNaN(fechaBase.getTime())) {
+                                                        fechaBase = new Date();
+                                                    }
+                                                } catch (e) {
+                                                    fechaBase = new Date();
+                                                }
+                                            }
                                             
                                             const formatDate = (dateString) => {
-                                                if (!dateString) return '';
-                                                if (dateString.length === 8 && !dateString.includes('-')) {
-                                                    const year = dateString.substring(0, 4);
-                                                    const month = dateString.substring(4, 6);
-                                                    const day = dateString.substring(6, 8);
+                                                if (!dateString || dateString === '' || dateString === null || dateString === undefined) {
+                                                    return '';
+                                                }
+                                                
+                                                // Convertir a string si no lo es
+                                                const fechaStr = String(dateString).trim();
+                                                
+                                                // Si es un objeto Date, convertirlo a string primero
+                                                if (dateString instanceof Date) {
+                                                    if (isNaN(dateString.getTime())) {
+                                                        return '';
+                                                    }
+                                                    const day = String(dateString.getDate()).padStart(2, '0');
+                                                    const month = String(dateString.getMonth() + 1).padStart(2, '0');
+                                                    const year = dateString.getFullYear();
                                                     return `${day}-${month}-${year}`;
                                                 }
-                                                if (dateString.includes('-')) {
-                                                    const [year, month, day] = dateString.split('-');
+                                                
+                                                // Si es string ISO (ej: "2025-10-28T03:00:00.000Z")
+                                                if (fechaStr.includes('T')) {
+                                                    const fechaDate = new Date(fechaStr);
+                                                    if (isNaN(fechaDate.getTime())) {
+                                                        return '';
+                                                    }
+                                                    const day = String(fechaDate.getDate()).padStart(2, '0');
+                                                    const month = String(fechaDate.getMonth() + 1).padStart(2, '0');
+                                                    const year = fechaDate.getFullYear();
                                                     return `${day}-${month}-${year}`;
                                                 }
-                                                return dateString;
+                                                
+                                                // Si es formato YYYYMMDD (8 caracteres sin guiones)
+                                                if (fechaStr.length === 8 && /^\d{8}$/.test(fechaStr)) {
+                                                    const year = fechaStr.substring(0, 4);
+                                                    const month = fechaStr.substring(4, 6);
+                                                    const day = fechaStr.substring(6, 8);
+                                                    return `${day}-${month}-${year}`;
+                                                }
+                                                
+                                                // Si es formato YYYY-MM-DD
+                                                if (fechaStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                                    const parts = fechaStr.split('-');
+                                                    if (parts.length === 3 && parts[0].length === 4) {
+                                                        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+                                                    }
+                                                }
+                                                
+                                                // Si es formato DD/MM/YYYY o similar, convertir a DD-MM-YYYY
+                                                if (fechaStr.includes('/')) {
+                                                    const parts = fechaStr.split('/');
+                                                    if (parts.length === 3) {
+                                                        // Asumir formato DD/MM/YYYY
+                                                        if (parts[0].length === 2 && parts[2].length === 4) {
+                                                            return `${parts[0]}-${parts[1]}-${parts[2]}`;
+                                                        }
+                                                        // Si es MM/DD/YYYY, convertir a DD-MM-YYYY
+                                                        if (parts[0].length === 2 && parts[1].length === 2 && parts[2].length === 4) {
+                                                            return `${parts[1]}-${parts[0]}-${parts[2]}`;
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                // Si ya está en formato DD-MM-YYYY, devolverlo tal cual
+                                                if (fechaStr.match(/^\d{2}-\d{2}-\d{4}$/)) {
+                                                    return fechaStr;
+                                                }
+                                                
+                                                // Si no se puede parsear, intentar crear Date
+                                                const fechaDate = new Date(fechaStr);
+                                                if (!isNaN(fechaDate.getTime())) {
+                                                    const day = String(fechaDate.getDate()).padStart(2, '0');
+                                                    const month = String(fechaDate.getMonth() + 1).padStart(2, '0');
+                                                    const year = fechaDate.getFullYear();
+                                                    return `${day}-${month}-${year}`;
+                                                }
+                                                
+                                                return '';
                                             };
 
                                             return (
@@ -1696,7 +2053,9 @@ const BalanceAcciones = ({ darkMode }) => {
                                                                 className="celda-input"
                                                             />
                                                         ) : (
-                                                            formatDate(fila.Fecha)
+                                                            <span style={{ display: 'inline-block', minWidth: '80px' }}>
+                                                                {formatDate(fila.Fecha) || 'N/A'}
+                                                            </span>
                                                         )}
                                                     </td>
                                                     <td>
@@ -1752,7 +2111,37 @@ const BalanceAcciones = ({ darkMode }) => {
                                                                 }}
                                                             />
                                                         ) : (
-                                                            parseInt(fila.Cantidad?.toString().replace(/\./g, ''))?.toLocaleString('es-CL') || '0'
+                                                            (() => {
+                                                                let cantidad = fila.Cantidad;
+                                                                
+                                                                // Si es número, usarlo directamente
+                                                                if (typeof cantidad === 'number') {
+                                                                    // Si el número tiene decimales, podría ser que se guardó mal
+                                                                    // Por ejemplo, si es 1300000.000, debería ser 1300000
+                                                                    cantidad = Math.floor(cantidad);
+                                                                } else if (typeof cantidad === 'string') {
+                                                                    // Si es string, parsear correctamente
+                                                                    // Primero limpiar puntos (separadores de miles) y comas (decimales)
+                                                                    const cantidadLimpia = cantidad.replace(/\./g, '').replace(',', '.');
+                                                                    const cantidadNum = parseFloat(cantidadLimpia) || 0;
+                                                                    // Si el número parece tener 3 ceros extra al final (ej: 1300000000 cuando debería ser 1300000)
+                                                                    // Verificar si es un múltiplo de 1000 y parece ser un error de formato
+                                                                    if (cantidadNum >= 1000 && cantidadNum % 1000 === 0) {
+                                                                        // Podría ser un error, pero mejor no asumir y usar el valor tal cual
+                                                                        cantidad = Math.floor(cantidadNum);
+                                                                    } else {
+                                                                        cantidad = Math.floor(cantidadNum);
+                                                                    }
+                                                                } else {
+                                                                    cantidad = 0;
+                                                                }
+                                                                
+                                                                // Formatear sin decimales
+                                                                return cantidad.toLocaleString('es-CL', { 
+                                                                    minimumFractionDigits: 0, 
+                                                                    maximumFractionDigits: 0 
+                                                                });
+                                                            })()
                                                         )}
                                                     </td>
                                                     <td>
@@ -1760,26 +2149,85 @@ const BalanceAcciones = ({ darkMode }) => {
                                                             <input
                                                                 type="text"
                                                                 className="celda-input"
-                                                                value={fila.Precio}
+                                                                value={(() => {
+                                                                    // Mostrar el precio formateado si es número, o el valor tal cual si es string
+                                                                    if (typeof fila.Precio === 'number') {
+                                                                        return fila.Precio.toLocaleString('es-CL', {
+                                                                            minimumFractionDigits: 2,
+                                                                            maximumFractionDigits: 2
+                                                                        });
+                                                                    }
+                                                                    return fila.Precio || '';
+                                                                })()}
                                                                 onChange={(e) => {
                                                                     const nuevasOperaciones = [...operacionesModal];
-                                                                    nuevasOperaciones[index].Precio = e.target.value;
+                                                                    // Parsear el valor ingresado
+                                                                    const valorLimpio = e.target.value.replace(/\./g, '').replace(',', '.');
+                                                                    const precioNum = parseFloat(valorLimpio) || 0;
+                                                                    nuevasOperaciones[index].Precio = precioNum; // Guardar como número
                                                                     // Recalcular Monto
-                                                                    const cantidad = parseFloat(fila.Cantidad) || 0;
-                                                                    const precio = parseFloat(e.target.value) || 0;
-                                                                    nuevasOperaciones[index].Monto = (cantidad * precio).toString();
+                                                                    let cantidad = 0;
+                                                                    if (typeof fila.Cantidad === 'number') {
+                                                                        cantidad = fila.Cantidad;
+                                                                    } else if (typeof fila.Cantidad === 'string') {
+                                                                        const cantidadLimpia = fila.Cantidad.replace(/\./g, '').replace(',', '.');
+                                                                        cantidad = parseFloat(cantidadLimpia) || 0;
+                                                                    }
+                                                                    nuevasOperaciones[index].Monto = (cantidad * precioNum);
                                                                     setOperacionesModal(nuevasOperaciones);
                                                                 }}
                                                             />
                                                         ) : (
-                                                            parseFloat(fila.Precio?.toString().replace(/\./g, '').replace(',', '.'))?.toLocaleString('es-CL', {
-                                                                minimumFractionDigits: 2,
-                                                                maximumFractionDigits: 2
-                                                            }) || '0,00'
+                                                            (() => {
+                                                                let precio = fila.Precio;
+                                                                
+                                                                // Si es número, usarlo directamente
+                                                                if (typeof precio === 'number') {
+                                                                    // Asegurar que sea un número válido
+                                                                    if (isNaN(precio) || !isFinite(precio)) {
+                                                                        precio = 0;
+                                                                    }
+                                                                } else if (typeof precio === 'string') {
+                                                                    // Si es string, parsear correctamente
+                                                                    // Limpiar puntos (separadores de miles) y comas (decimales)
+                                                                    const precioLimpia = precio.replace(/\./g, '').replace(',', '.');
+                                                                    precio = parseFloat(precioLimpia) || 0;
+                                                                    if (isNaN(precio) || !isFinite(precio)) {
+                                                                        precio = 0;
+                                                                    }
+                                                                } else {
+                                                                    precio = 0;
+                                                                }
+                                                                
+                                                                // Formatear con 2 decimales
+                                                                return precio.toLocaleString('es-CL', {
+                                                                    minimumFractionDigits: 2,
+                                                                    maximumFractionDigits: 2
+                                                                });
+                                                            })()
                                                         )}
                                                     </td>
                                                     <td>
-                                                        {Math.round(parseFloat(fila.Monto?.toString().replace(/\./g, '').replace(',', '.') || 0)).toLocaleString('es-CL')}
+                                                        {(() => {
+                                                            let monto = fila.Monto;
+                                                            
+                                                            // Si es número, usarlo directamente (ya está correcto)
+                                                            if (typeof monto === 'number') {
+                                                                // monto ya es número, no necesita conversión
+                                                            } else if (typeof monto === 'string') {
+                                                                // Si es string, parsear correctamente
+                                                                const montoLimpia = monto.replace(/\./g, '').replace(',', '.');
+                                                                monto = parseFloat(montoLimpia) || 0;
+                                                            } else {
+                                                                monto = 0;
+                                                            }
+                                                            
+                                                            // Formatear sin decimales (redondeado)
+                                                            return Math.round(monto).toLocaleString('es-CL', {
+                                                                minimumFractionDigits: 0,
+                                                                maximumFractionDigits: 0
+                                                            });
+                                                        })()}
                                                     </td>
                                                     <td>
                                                         {filasEditables.has(index) ? (
@@ -1822,7 +2270,7 @@ const BalanceAcciones = ({ darkMode }) => {
                                                                             return nuevas;
                                                                         });
                                                                     }}
-                                                                    className="operaciones-modal-check-button"
+                                                                    className="save-button-inline"
                                                                 >
                                                                     <FontAwesomeIcon icon={faCheck} />
                                                                 </button>
@@ -1831,7 +2279,7 @@ const BalanceAcciones = ({ darkMode }) => {
                                                                     onClick={() => {
                                                                         setFilasEditables(prev => new Set([...prev, index]));
                                                                     }}
-                                                                    className="operaciones-modal-edit-button"
+                                                                    className="edit-button"
                                                                 >
                                                                     <FontAwesomeIcon icon={faEdit} />
                                                                 </button>
@@ -1841,7 +2289,7 @@ const BalanceAcciones = ({ darkMode }) => {
                                                                     const nuevasOperaciones = operacionesModal.filter((_, i) => i !== index);
                                                                     setOperacionesModal(nuevasOperaciones);
                                                                 }}
-                                                                className="operaciones-modal-delete-button"
+                                                                className="delete-button"
                                                             >
                                                                 <FontAwesomeIcon icon={faTrash} />
                                                             </button>
@@ -1852,6 +2300,218 @@ const BalanceAcciones = ({ darkMode }) => {
                                         })}
                                     </tbody>
                                 </table>
+                                
+                                {/* Resumen por Nemotécnico */}
+                                {(() => {
+                                    // Agrupar operaciones por nemotécnico
+                                    const resumenPorNemotecnico = {};
+                                    
+                                    operacionesModal.forEach(fila => {
+                                        const nemotecnico = fila.Nemotecnico || 'Sin nemotécnico';
+                                        if (!resumenPorNemotecnico[nemotecnico]) {
+                                            resumenPorNemotecnico[nemotecnico] = {
+                                                compras: { cantidad: 0, monto: 0 },
+                                                ventas: { cantidad: 0, monto: 0 }
+                                            };
+                                        }
+                                        
+                                        // Parsear cantidad
+                                        let cantidad = 0;
+                                        if (typeof fila.Cantidad === 'number') {
+                                            cantidad = fila.Cantidad;
+                                        } else if (typeof fila.Cantidad === 'string') {
+                                            const cantidadLimpia = fila.Cantidad.replace(/\./g, '').replace(',', '.');
+                                            cantidad = parseFloat(cantidadLimpia) || 0;
+                                        }
+                                        
+                                        // Parsear monto
+                                        let monto = 0;
+                                        if (typeof fila.Monto === 'number') {
+                                            monto = fila.Monto;
+                                        } else if (typeof fila.Monto === 'string') {
+                                            const montoLimpia = fila.Monto.replace(/\./g, '').replace(',', '.');
+                                            monto = parseFloat(montoLimpia) || 0;
+                                        }
+                                        
+                                        if (fila.Tipo === 'Compra') {
+                                            resumenPorNemotecnico[nemotecnico].compras.cantidad += Math.floor(cantidad);
+                                            resumenPorNemotecnico[nemotecnico].compras.monto += monto;
+                                        } else if (fila.Tipo === 'Venta') {
+                                            resumenPorNemotecnico[nemotecnico].ventas.cantidad += Math.floor(cantidad);
+                                            resumenPorNemotecnico[nemotecnico].ventas.monto += monto;
+                                        }
+                                    });
+                                    
+                                    const nemotecnicos = Object.keys(resumenPorNemotecnico).sort();
+                                    
+                                    if (nemotecnicos.length === 0) return null;
+                                    
+                                    return (
+                                        <div style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#f8f9fa', borderRadius: '4px', border: '1px solid #e0e0e0' }}>
+                                            <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '0.85rem', fontWeight: 'bold', color: '#333' }}>Resumen por Nemotécnico</h4>
+                                            <table style={{ width: '100%', fontSize: '0.65rem', borderCollapse: 'collapse' }}>
+                                                <thead>
+                                                    <tr style={{ backgroundColor: '#e0e0e0', fontWeight: 'bold' }}>
+                                                        <th style={{ padding: '0.4rem 0.5rem', textAlign: 'left', borderBottom: '2px solid #ccc' }}>Nemotécnico</th>
+                                                        <th style={{ padding: '0.4rem 0.5rem', textAlign: 'right', borderBottom: '2px solid #ccc' }}>Cant. Compra</th>
+                                                        <th style={{ padding: '0.4rem 0.5rem', textAlign: 'right', borderBottom: '2px solid #ccc' }}>Monto Compra</th>
+                                                        <th style={{ padding: '0.4rem 0.5rem', textAlign: 'right', borderBottom: '2px solid #ccc' }}>Cant. Venta</th>
+                                                        <th style={{ padding: '0.4rem 0.5rem', textAlign: 'right', borderBottom: '2px solid #ccc' }}>Monto Venta</th>
+                                                        <th style={{ padding: '0.4rem 0.5rem', textAlign: 'right', borderBottom: '2px solid #ccc' }}>Neto</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {nemotecnicos.map(nemotecnico => {
+                                                        const resumen = resumenPorNemotecnico[nemotecnico];
+                                                        const neto = resumen.compras.monto - resumen.ventas.monto;
+                                                        
+                                                        return (
+                                                            <tr key={nemotecnico} style={{ borderBottom: '1px solid #e0e0e0' }}>
+                                                                <td style={{ padding: '0.4rem 0.5rem', fontWeight: '600' }}>{nemotecnico}</td>
+                                                                <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>
+                                                                    {resumen.compras.cantidad > 0 ? resumen.compras.cantidad.toLocaleString('es-CL') : '-'}
+                                                                </td>
+                                                                <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>
+                                                                    {resumen.compras.monto > 0 ? Math.round(resumen.compras.monto).toLocaleString('es-CL') : '-'}
+                                                                </td>
+                                                                <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>
+                                                                    {resumen.ventas.cantidad > 0 ? resumen.ventas.cantidad.toLocaleString('es-CL') : '-'}
+                                                                </td>
+                                                                <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>
+                                                                    {resumen.ventas.monto > 0 ? Math.round(resumen.ventas.monto).toLocaleString('es-CL') : '-'}
+                                                                </td>
+                                                                <td style={{ 
+                                                                    padding: '0.4rem 0.5rem', 
+                                                                    textAlign: 'right', 
+                                                                    fontWeight: 'bold',
+                                                                    color: neto >= 0 ? '#4CAF50' : '#f44336'
+                                                                }}>
+                                                                    {Math.round(neto).toLocaleString('es-CL')}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                                <tfoot>
+                                                    <tr style={{ backgroundColor: '#f0f0f0', fontWeight: 'bold', borderTop: '2px solid var(--primary-color)' }}>
+                                                        <td style={{ padding: '0.5rem 0.5rem' }}>TOTAL</td>
+                                                        <td style={{ padding: '0.5rem 0.5rem', textAlign: 'right' }}>
+                                                            {Object.values(resumenPorNemotecnico).reduce((sum, r) => sum + r.compras.cantidad, 0).toLocaleString('es-CL')}
+                                                        </td>
+                                                        <td style={{ padding: '0.5rem 0.5rem', textAlign: 'right' }}>
+                                                            {Math.round(Object.values(resumenPorNemotecnico).reduce((sum, r) => sum + r.compras.monto, 0)).toLocaleString('es-CL')}
+                                                        </td>
+                                                        <td style={{ padding: '0.5rem 0.5rem', textAlign: 'right' }}>
+                                                            {Object.values(resumenPorNemotecnico).reduce((sum, r) => sum + r.ventas.cantidad, 0).toLocaleString('es-CL')}
+                                                        </td>
+                                                        <td style={{ padding: '0.5rem 0.5rem', textAlign: 'right' }}>
+                                                            {Math.round(Object.values(resumenPorNemotecnico).reduce((sum, r) => sum + r.ventas.monto, 0)).toLocaleString('es-CL')}
+                                                        </td>
+                                                        <td style={{ 
+                                                            padding: '0.5rem 0.5rem', 
+                                                            textAlign: 'right',
+                                                            color: (() => {
+                                                                const totalNeto = Object.values(resumenPorNemotecnico).reduce((sum, r) => sum + (r.compras.monto - r.ventas.monto), 0);
+                                                                return totalNeto >= 0 ? '#4CAF50' : '#f44336';
+                                                            })()
+                                                        }}>
+                                                            {Math.round(Object.values(resumenPorNemotecnico).reduce((sum, r) => sum + (r.compras.monto - r.ventas.monto), 0)).toLocaleString('es-CL')}
+                                                        </td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                            <div className="operaciones-modal-actions">
+                                <button
+                                    onClick={() => {
+                                        const nuevaFila = {
+                                            id: null,
+                                            Fecha: new Date().toISOString().slice(0, 10).replace(/-/g, ''),
+                                            Nemotecnico: '',
+                                            Cantidad: '',
+                                            Precio: '',
+                                            Monto: '',
+                                            Tipo: '',
+                                            CorredorVende: '',
+                                            CorredorCompra: '',
+                                            CodigoVende: '',
+                                            CodigoCompra: '',
+                                            Condicion: 'CN',
+                                            Compra: '',
+                                            esNuevaFila: true
+                                        };
+                                        setOperacionesModal(prev => [nuevaFila, ...prev]);
+                                        setFilasEditables(prev => new Set([0, ...Array.from(prev).map(i => i + 1)]));
+                                    }}
+                                    className="operaciones-modal-add-button"
+                                >
+                                    <FontAwesomeIcon icon={faPlus} />
+                                    Agregar Fila
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            setGuardandoOperaciones(true);
+                                            // Convertir operaciones al formato esperado por el servidor
+                                            const operacionesParaGuardar = operacionesModal.map(op => ({
+                                                id: op.id,
+                                                fecha: op.Fecha ? (op.Fecha.length === 8 ? 
+                                                    `${op.Fecha.substring(0, 4)}-${op.Fecha.substring(4, 6)}-${op.Fecha.substring(6, 8)}` : 
+                                                    op.Fecha) : null,
+                                                nemotecnico: op.Nemotecnico || '',
+                                                cantidad: parseFloat(op.Cantidad?.toString().replace(/\./g, '').replace(',', '.')) || 0,
+                                                precio: parseFloat(op.Precio?.toString().replace(/\./g, '').replace(',', '.')) || 0,
+                                                monto: parseFloat(op.Monto?.toString().replace(/\./g, '').replace(',', '.')) || 0,
+                                                tipo_operacion: op.Tipo || '',
+                                                codigo_corredor: op.Tipo === 'Compra' ? (op.CodigoCompra || 0) : (op.CodigoVende || 0),
+                                                nombre_corredor: op.Tipo === 'Compra' ? (op.CorredorCompra || '') : (op.CorredorVende || '')
+                                            }));
+
+                                            const response = await fetch(`${API_URL}/historial-operaciones/${historialIdModal}`, {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                },
+                                                body: JSON.stringify({ operaciones: operacionesParaGuardar }),
+                                            });
+
+                                            if (!response.ok) {
+                                                const errorData = await response.json();
+                                                throw new Error(errorData.error || 'Error al guardar operaciones');
+                                            }
+
+                                            // Recargar balance e historial
+                                            await cargarBalance();
+                                            await cargarHistorial();
+                                            
+                                            // Cerrar modal
+                                            setShowOperacionesModal(false);
+                                            mostrarNotificacion('Operaciones guardadas correctamente', 'success');
+                                        } catch (error) {
+                                            console.error('Error al guardar operaciones:', error);
+                                            mostrarNotificacion(`Error al guardar operaciones: ${error.message}`, 'error');
+                                        } finally {
+                                            setGuardandoOperaciones(false);
+                                        }
+                                    }}
+                                    className="operaciones-modal-save-button"
+                                    disabled={guardandoOperaciones}
+                                >
+                                    {guardandoOperaciones ? (
+                                        <>
+                                            <FontAwesomeIcon icon={faSpinner} spin />
+                                            Guardando...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <FontAwesomeIcon icon={faCheck} />
+                                            Guardar Cambios
+                                        </>
+                                    )}
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1863,4 +2523,5 @@ const BalanceAcciones = ({ darkMode }) => {
 };
 
 export default BalanceAcciones;
+
 

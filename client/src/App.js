@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import './styles/App.css';
 import AYR, { AYRModalContent } from './components/AportesYRescates';
-import DragDropCSV, { DragDropCSVModalContent } from './components/OperacionesAFinix';
 import BalanceAcciones from './components/BalanceAcciones';
 import Modal from './components/Modal';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -25,8 +24,6 @@ const App = () => {
     const handleInfoClick = (tabId) => {
         if (tabId === 'ayr') {
             setModalContent(AYRModalContent);
-        } else if (tabId === 'transformar') {
-            setModalContent(DragDropCSVModalContent);
         }
         setShowModal(true);
     };
@@ -55,26 +52,10 @@ const App = () => {
                         </button>
                     </div>
                     <div 
-                        className={`nav-tab ${activeTab === 'transformar' ? 'active' : ''}`}
-                        onClick={() => handleTabChange('transformar')}
-                    >
-                        Transformar CSV
-                        <button 
-                            className="info-button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleInfoClick('transformar');
-                            }}
-                            title="Información"
-                        >
-                            <FontAwesomeIcon icon={faInfoCircle} />
-                        </button>
-                    </div>
-                    <div 
                         className={`nav-tab ${activeTab === 'balance' ? 'active' : ''}`}
                         onClick={() => handleTabChange('balance')}
                     >
-                        Balance de Acciones
+                        Cartera Acciones BCS
                     </div>
                     <div className="dark-mode-switch">
                         <span className="mode-label">Modo Oscuro</span>
@@ -92,7 +73,6 @@ const App = () => {
             
             <div className="content-container">
                 {activeTab === 'ayr' && <AYR darkMode={darkMode} />}
-                {activeTab === 'transformar' && <DragDropCSV darkMode={darkMode} />}
                 {activeTab === 'balance' && <BalanceAcciones darkMode={darkMode} />}
             </div>
 
