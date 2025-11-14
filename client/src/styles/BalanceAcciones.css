@@ -1,6 +1,7 @@
 .balance-acciones-container {
     padding: 1rem 2rem;
     width: 100%;
+    background-color: transparent;
 }
 
 .balance-acciones-header {
@@ -110,6 +111,7 @@
     gap: 2rem;
     margin-top: 0;
     align-items: start;
+    background-color: transparent;
 }
 
 .balance-table-section {
