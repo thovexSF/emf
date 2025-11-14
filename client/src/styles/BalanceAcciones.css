@@ -116,11 +116,13 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
+    background-color: #ffffff !important;
 }
 
 .balance-acciones-table-container {
     overflow-x: auto;
     width: 100%;
+    background-color: #ffffff !important;
 }
 
 .balance-right-section {
@@ -134,7 +136,7 @@
     margin: 0;
     margin-top: 48px; /* Alinear con la tabla (altura de botones + margen) */
     padding: 1.5rem;
-    background-color: #f8f9fa;
+    background-color: #f8f9fa !important;
     border-radius: 8px;
     border: 2px dashed var(--primary-color);
 }
@@ -154,7 +156,7 @@
     text-align: center;
     cursor: pointer;
     transition: all 0.3s ease;
-    background-color: #ffffff;
+    background-color: #ffffff !important;
     max-width: 600px;
 }
 
@@ -176,7 +178,7 @@
 
 .balance-base-dropzone p {
     margin: 0.3rem 0;
-    color: #333;
+    color: #333 !important;
     font-weight: 500;
     font-size: 0.95rem;
 }
@@ -537,7 +539,7 @@
     width: 100%;
     border-collapse: collapse;
     margin-top: 0;
-    background-color: #ffffff;
+    background-color: #ffffff !important;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     table-layout: auto;
     font-size: 0.8rem;
@@ -591,9 +593,9 @@
 .balance-acciones-table td {
     padding: 0.4rem 0.75rem;
     border-bottom: 1px solid #e0e0e0;
-    color: #333;
+    color: #333 !important;
     font-size: 0.75rem;
-    background-color: #ffffff;
+    background-color: #ffffff !important;
 }
 
 .balance-acciones-table tbody tr {
@@ -606,7 +608,11 @@
 }
 
 .balance-acciones-table tbody tr:nth-child(even) {
-    background-color: #f8f9fa;
+    background-color: #f8f9fa !important;
+}
+
+.balance-acciones-table tbody tr:nth-child(even) td {
+    background-color: #f8f9fa !important;
 }
 
 .balance-acciones-table tbody tr.fila-modificada {
@@ -971,8 +977,16 @@
 }
 
 /* Dark mode styles */
+.dark-mode .balance-table-section {
+    background-color: #1a1a1a !important;
+}
+
+.dark-mode .balance-acciones-table-container {
+    background-color: #1a1a1a !important;
+}
+
 .dark-mode .balance-acciones-table {
-    background-color: #1a1a1a;
+    background-color: #1a1a1a !important;
 }
 
 .dark-mode .balance-acciones-table th {
@@ -983,10 +997,10 @@
 
 .dark-mode .balance-acciones-table td {
     border-bottom: 1px solid #333;
-    color: #e0e0e0;
+    color: #e0e0e0 !important;
     font-size: 0.75rem;
     padding: 0.4rem 0.75rem;
-    background-color: #1a1a1a;
+    background-color: #1a1a1a !important;
 }
 
 .dark-mode .balance-acciones-table tbody tr:hover {
@@ -994,7 +1008,11 @@
 }
 
 .dark-mode .balance-acciones-table tbody tr:nth-child(even) {
-    background-color: #222;
+    background-color: #222 !important;
+}
+
+.dark-mode .balance-acciones-table tbody tr:nth-child(even) td {
+    background-color: #222 !important;
 }
 
 .dark-mode .precio-cierre-input {
@@ -1016,25 +1034,25 @@
 }
 
 .dark-mode .balance-base-upload-section {
-    background-color: #1a1a1a;
+    background-color: #1a1a1a !important;
     border-color: var(--primary-color);
 }
 
 .dark-mode .balance-base-dropzone {
-    background-color: #1a1a1a;
+    background-color: #1a1a1a !important;
     border-color: #555;
 }
 
 .dark-mode .balance-base-dropzone:hover {
-    background-color: rgba(242, 100, 57, 0.15);
+    background-color: rgba(242, 100, 57, 0.15) !important;
 }
 
 .dark-mode .balance-base-dropzone.active {
-    background-color: rgba(242, 100, 57, 0.25);
+    background-color: rgba(242, 100, 57, 0.25) !important;
 }
 
 .dark-mode .balance-base-dropzone p {
-    color: #e0e0e0;
+    color: #e0e0e0 !important;
 }
 
 .dark-mode .balance-base-dropzone small {
