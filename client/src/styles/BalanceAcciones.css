@@ -134,7 +134,7 @@
     margin: 0;
     margin-top: 48px; /* Alinear con la tabla (altura de botones + margen) */
     padding: 1.5rem;
-    background-color: rgba(242, 100, 57, 0.1);
+    background-color: #f8f9fa;
     border-radius: 8px;
     border: 2px dashed var(--primary-color);
 }
@@ -154,7 +154,7 @@
     text-align: center;
     cursor: pointer;
     transition: all 0.3s ease;
-    background-color: var(--background-color);
+    background-color: #ffffff;
     max-width: 600px;
 }
 
@@ -176,7 +176,7 @@
 
 .balance-base-dropzone p {
     margin: 0.3rem 0;
-    color: var(--text-color);
+    color: #333;
     font-weight: 500;
     font-size: 0.95rem;
 }
@@ -537,7 +537,7 @@
     width: 100%;
     border-collapse: collapse;
     margin-top: 0;
-    background-color: var(--background-color);
+    background-color: #ffffff;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     table-layout: auto;
     font-size: 0.8rem;
@@ -591,8 +591,9 @@
 .balance-acciones-table td {
     padding: 0.4rem 0.75rem;
     border-bottom: 1px solid #e0e0e0;
-    color: var(--text-color);
+    color: #333;
     font-size: 0.75rem;
+    background-color: #ffffff;
 }
 
 .balance-acciones-table tbody tr {
@@ -605,7 +606,7 @@
 }
 
 .balance-acciones-table tbody tr:nth-child(even) {
-    background-color: rgba(0, 0, 0, 0.02);
+    background-color: #f8f9fa;
 }
 
 .balance-acciones-table tbody tr.fila-modificada {
@@ -982,9 +983,10 @@
 
 .dark-mode .balance-acciones-table td {
     border-bottom: 1px solid #333;
-    color: var(--text-color);
+    color: #e0e0e0;
     font-size: 0.75rem;
     padding: 0.4rem 0.75rem;
+    background-color: #1a1a1a;
 }
 
 .dark-mode .balance-acciones-table tbody tr:hover {
@@ -992,7 +994,7 @@
 }
 
 .dark-mode .balance-acciones-table tbody tr:nth-child(even) {
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: #222;
 }
 
 .dark-mode .precio-cierre-input {
@@ -1014,7 +1016,7 @@
 }
 
 .dark-mode .balance-base-upload-section {
-    background-color: rgba(242, 100, 57, 0.2);
+    background-color: #1a1a1a;
     border-color: var(--primary-color);
 }
 
@@ -1029,6 +1031,10 @@
 
 .dark-mode .balance-base-dropzone.active {
     background-color: rgba(242, 100, 57, 0.25);
+}
+
+.dark-mode .balance-base-dropzone p {
+    color: #e0e0e0;
 }
 
 .dark-mode .balance-base-dropzone small {
