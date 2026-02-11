@@ -1806,20 +1806,20 @@ const BalanceAcciones = ({ darkMode }) => {
                                                 <tr key={item.id}>
                                                     <td>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                                            <button
-                                                                onClick={() => descargarArchivoOriginal(item.id, item.nombreArchivo)}
-                                                                className="file-icon-button"
-                                                                title="Descargar archivo original"
-                                                                style={{ 
-                                                                    background: 'none', 
-                                                                    border: 'none', 
-                                                                    cursor: 'pointer',
-                                                                    padding: 0,
-                                                                    color: 'inherit'
-                                                                }}
-                                                            >
-                                                                <FontAwesomeIcon icon={faFileAlt} />
-                                                            </button>
+                                                        <button
+                                                            onClick={() => descargarArchivoOriginal(item.id, item.nombreArchivo)}
+                                                            className="file-icon-button"
+                                                            title="Descargar archivo original"
+                                                            style={{ 
+                                                                background: 'none', 
+                                                                border: 'none', 
+                                                                cursor: 'pointer',
+                                                                padding: 0,
+                                                                color: 'inherit'
+                                                            }}
+                                                        >
+                                                            <FontAwesomeIcon icon={faFileAlt} />
+                                                        </button>
                                                             {item.tipo === 'csv' && (
                                                                 <button
                                                                     onClick={() => verOperaciones(item.id)}
@@ -1871,9 +1871,9 @@ const BalanceAcciones = ({ darkMode }) => {
                                                         </div>
                                                     </td>
                                                 </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                            ))}
+                                        </tbody>
+                                    </table>
                                 )}
                             </div>
                         </div>
@@ -1893,7 +1893,7 @@ const BalanceAcciones = ({ darkMode }) => {
                             >
                                 <FontAwesomeIcon icon={faTimes} />
                             </button>
-                        </div>
+        </div>
                         <div className="operaciones-modal-body">
                             {guardandoOperaciones && (
                                 <div style={{ 

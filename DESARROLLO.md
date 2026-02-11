@@ -157,7 +157,69 @@ Si tienes dudas sobre el proceso de desarrollo, consulta antes de hacer cambios 
 
 ---
 
-**Última actualización**: Noviembre 2025
+## 🔥 Solución al Crash de Railway (Noviembre 2025)
 
+### Problema Identificado
+
+El servidor crasheaba en Railway con error `SIGTERM` debido a:
+
+1. **Script de inicio incorrecto**: `package.json` tenía `"start": "npm run dev"` que ejecutaba `concurrently` con cliente y servidor, cuando en producción solo debe ejecutarse el servidor.
+
+2. **Healthcheck agresivo**: Railway estaba verificando `/api/fetch-data` (query completa a DB) con timeout de solo 100ms, causando reinicios constantes.
+
+3. **Proceso de build**: El cliente React no estaba siendo servido correctamente como archivos estáticos.
+
+### Cambios Aplicados
+
+#### 1. package.json (raíz)
+```json
+// ANTES
+"start": "npm run dev"
+
+// DESPUÉS
+"start": "cd server && npm start"
+```
+
+#### 2. railway.toml
+```toml
+# ANTES
+healthcheckPath = "/api/fetch-data"
+healthcheckTimeout = 100
+
+# DESPUÉS
+healthcheckPath = "/api/health"
+healthcheckTimeout = 30
+```
+
+### Cómo Funciona Ahora
+
+**Desarrollo local:**
+```bash
+npm run dev  # Ejecuta cliente (puerto 3001) y servidor (puerto 3000) con concurrently
+```
+
+**Producción (Railway):**
+```bash
+npm start  # Solo ejecuta el servidor que sirve los archivos estáticos del cliente construido
+```
+
+### Build Process en Railway
+
+1. `npm run build` → Construye el cliente React en `client/build/`
+2. `npm start` → Ejecuta solo el servidor (`cd server && npm start`)
+3. El servidor Express sirve los archivos estáticos desde `client/build/` cuando `NODE_ENV=production`
+
+### Verificación Post-Deploy
+
+Después de desplegar, verifica:
+
+- ✅ `/api/health` responde correctamente
+- ✅ La aplicación React carga sin errores
+- ✅ Los logs no muestran errores de healthcheck
+- ✅ El cron job se ejecuta sin crashear el servidor
+
+---
+
+**Última actualización**: Noviembre 2025
 
 

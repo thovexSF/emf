@@ -4,7 +4,7 @@ buildCommand = "npm run build"
 
 [deploy]
 startCommand = "NODE_ENV=production npm start"
-healthcheckPath = "/api/fetch-data"
-healthcheckTimeout = 100
+healthcheckPath = "/api/health"
+healthcheckTimeout = 30
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10 

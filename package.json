@@ -5,7 +5,7 @@
   "homepage": ".",
   "main": "index.js",
   "scripts": {
-    "start": "npm run dev",
+    "start": "cd server && npm start",
     "build": "cd client && npm install && npm run build && cd .. && cd server && npm install",
     "dev": "concurrently \"cd server && npm run dev\" \"cd client && npm start\"",
     "server": "cd server && npm run dev",
