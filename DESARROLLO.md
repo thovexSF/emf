@@ -220,6 +220,119 @@ Después de desplegar, verifica:
 
 ---
 
-**Última actualización**: Noviembre 2025
+## 🛡️ Protecciones de Hardening Implementadas (Febrero 2026)
+
+### Problema: Riesgo de caída total por fallo de un módulo
+
+La aplicación tiene dos módulos críticos:
+1. **Aportes y Rescates** - Scraping diario de datos
+2. **Cartera de Acciones BCS** - Gestión de operaciones de acciones
+
+Si uno fallaba, podía tirar toda la aplicación.
+
+### Soluciones Implementadas
+
+#### 1. Cron Job Protegido
+```javascript
+// ANTES - Si fallaba, tiraba el servidor
+cron.schedule('17 20 * * *', updateDataAndSave);
+
+// DESPUÉS - El error se captura y se loguea
+cron.schedule('17 20 * * *', async () => {
+    try {
+        await updateDataAndSave();
+    } catch (error) {
+        console.error('[CRON] ERROR:', error.message);
+        // Servidor continúa corriendo
+    }
+});
+```
+
+#### 2. Handlers de Errores Globales
+
+Agregados listeners para capturar errores no manejados:
+- `process.on('uncaughtException')` - Errores síncronos no capturados
+- `process.on('unhandledRejection')` - Promesas rechazadas sin catch
+
+**Importante**: Estos errores se loguean pero NO tiran el servidor.
+
+#### 3. Graceful Shutdown
+
+Cuando Railway envía SIGTERM para reiniciar el servidor:
+- Cierra conexiones HTTP gracefully
+- Cierra el pool de base de datos
+- Timeout de 30s para forzar cierre si es necesario
+
+#### 4. Health Checks por Módulo
+
+**Endpoint general:**
+- `GET /api/health` - Estado general del servidor y ambos módulos
+
+**Endpoints específicos:**
+- `GET /api/health/aportes-rescates` - Solo módulo de Aportes y Rescates
+- `GET /api/health/cartera-acciones` - Solo módulo de Cartera de Acciones
+
+**Uso:**
+```bash
+# Verificar estado general
+curl https://tu-app.railway.app/api/health
+
+# Verificar módulo específico
+curl https://tu-app.railway.app/api/health/aportes-rescates
+curl https://tu-app.railway.app/api/health/cartera-acciones
+```
+
+#### 5. Error Logging Mejorado
+
+Todos los errores ahora incluyen:
+- Módulo afectado (`aportes-rescates` o `cartera-acciones`)
+- Path del endpoint
+- Timestamp
+- Stack trace completo
+- Formato visual con separadores para fácil identificación en logs
+
+#### 6. Middleware de Error Mejorado
+
+El middleware ahora:
+- Loguea errores con formato estructurado
+- Identifica el módulo afectado
+- Retorna mensajes apropiados según NODE_ENV
+- **NUNCA** tira el servidor por un error en un endpoint
+
+### Beneficios
+
+✅ **Aislamiento de fallos**: Si un módulo falla, el otro continúa funcionando
+✅ **Mejor observabilidad**: Health checks específicos por módulo
+✅ **Logs estructurados**: Fácil identificar qué módulo tiene problemas
+✅ **Sin downtime**: Errores no tiran el servidor completo
+✅ **Graceful shutdown**: Railway puede reiniciar sin interrumpir requests
+
+### Monitoreo en Producción
+
+**Recomendaciones:**
+
+1. Configurar alertas en Railway para:
+   - Uso de memoria > 80%
+   - Errores en logs (buscar patrón `[ERROR]`)
+   - Health check failures
+
+2. Revisar logs regularmente buscando:
+   - `[CRON] ERROR` - Fallo en actualización automática
+   - `UNCAUGHT EXCEPTION` - Errores no manejados
+   - `UNHANDLED REJECTION` - Promesas sin catch
+
+3. Usar los health checks específicos para identificar qué módulo tiene problemas
+
+### Arquitectura de Degradación Graceful
+
+Si un módulo falla:
+- El health check general reportará estado `degraded` en vez de `unhealthy`
+- El módulo afectado seguirá devolviendo errores 500 con información del problema
+- El otro módulo continuará funcionando normalmente
+- Railway NO reiniciará el servidor si el health check principal responde
+
+---
+
+**Última actualización**: Febrero 2026
 
 

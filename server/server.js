@@ -69,8 +69,9 @@ app.use(limiter);
 
 // API Routes
 app.get('/api/fetch-data', async (req, res) => {
-    const client = await pool.connect();
+    let client;
     try {
+        client = await pool.connect();
         const result = await client.query('SELECT * FROM daily_statistics ORDER BY fecha');
         const formattedRows = formatDates(result.rows);
         const rows = formattedRows.map(row => ({
@@ -84,10 +85,15 @@ app.get('/api/fetch-data', async (req, res) => {
         }));
         res.json(rows);
     } catch (error) {
-        console.error('Error en /api/fetch-data:', error);
-        res.status(500).json({ error: error.message });
+        console.error('[ERROR] /api/fetch-data - Module: Aportes y Rescates');
+        console.error('[ERROR] Details:', error.message);
+        res.status(500).json({
+            error: 'Error fetching data from Aportes y Rescates module',
+            module: 'aportes-rescates',
+            message: error.message
+        });
     } finally {
-        client.release();
+        if (client) client.release();
     }
 });
 
@@ -303,7 +309,7 @@ app.get('/api/test-holidays', async (req, res) => {
     }
 });
 
-// Endpoint de diagnóstico
+// Endpoint de diagnóstico general
 app.get('/api/health', async (req, res) => {
     try {
         const diagnostics = {
@@ -311,6 +317,12 @@ app.get('/api/health', async (req, res) => {
             nodeVersion: process.version,
             environment: process.env.NODE_ENV,
             databaseUrl: process.env.DATABASE_URL ? 'Present' : 'Missing',
+            uptime: process.uptime(),
+            memory: process.memoryUsage(),
+            modules: {
+                aportesRescates: 'unknown',
+                carteraAcciones: 'unknown'
+            },
             dependencies: {},
             scraper: {}
         };
@@ -336,8 +348,10 @@ app.get('/api/health', async (req, res) => {
             const scraper = new SimpleAYRScraper();
             diagnostics.scraper.load = 'OK';
             diagnostics.scraper.baseUrl = scraper.baseUrl;
+            diagnostics.modules.aportesRescates = 'OK';
         } catch (e) {
             diagnostics.scraper.load = `Error: ${e.message}`;
+            diagnostics.modules.aportesRescates = 'ERROR';
         }
 
         // Verificar conexión a base de datos
@@ -350,16 +364,83 @@ app.get('/api/health', async (req, res) => {
             diagnostics.database = `Error: ${e.message}`;
         }
 
+        // Verificar módulo de cartera de acciones
+        try {
+            // Hacer una query simple para verificar que las tablas existen
+            const client = await pool.connect();
+            await client.query('SELECT COUNT(*) FROM operaciones_acciones LIMIT 1');
+            client.release();
+            diagnostics.modules.carteraAcciones = 'OK';
+        } catch (e) {
+            diagnostics.modules.carteraAcciones = `Error: ${e.message}`;
+        }
+
+        // Determinar estado general
+        const allModulesOk = diagnostics.modules.aportesRescates === 'OK' &&
+                            diagnostics.modules.carteraAcciones === 'OK';
+        const dbOk = diagnostics.database === 'Connected';
+
         res.json({
-            status: 'healthy',
+            status: (allModulesOk && dbOk) ? 'healthy' : 'degraded',
             diagnostics
         });
     } catch (error) {
         console.error('Error in health check:', error);
-        res.status(500).json({ 
+        // Incluso si el health check falla, el servidor sigue corriendo
+        res.status(200).json({
+            status: 'degraded',
+            error: error.message,
+            message: 'Health check failed but server is running'
+        });
+    }
+});
+
+// Health check específico para módulo de Aportes y Rescates
+app.get('/api/health/aportes-rescates', async (req, res) => {
+    try {
+        const client = await pool.connect();
+        try {
+            await client.query('SELECT COUNT(*) FROM daily_statistics LIMIT 1');
+            res.json({
+                module: 'aportes-rescates',
+                status: 'healthy',
+                timestamp: new Date().toISOString()
+            });
+        } finally {
+            client.release();
+        }
+    } catch (error) {
+        console.error('Aportes y Rescates health check failed:', error.message);
+        res.status(200).json({
+            module: 'aportes-rescates',
             status: 'unhealthy',
             error: error.message,
-            stack: error.stack
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// Health check específico para módulo de Cartera de Acciones
+app.get('/api/health/cartera-acciones', async (req, res) => {
+    try {
+        const client = await pool.connect();
+        try {
+            await client.query('SELECT COUNT(*) FROM operaciones_acciones LIMIT 1');
+            res.json({
+                module: 'cartera-acciones',
+                status: 'healthy',
+                timestamp: new Date().toISOString()
+            });
+        } finally {
+            client.release();
+        }
+    } catch (error) {
+        console.error('Cartera Acciones health check failed:', error.message);
+        res.status(200).json({
+            module: 'cartera-acciones',
+            status: 'unhealthy',
+            error: error.message,
+            timestamp: new Date().toISOString()
         });
     }
 });
@@ -394,10 +475,29 @@ app.get('/api/test-scraper', async (req, res) => {
     }
 });
 
-// Error handling middleware
+// Error handling middleware - Mejorado para prevenir caídas del servidor
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ error: 'Something broke!' });
+    console.error('═══════════════════════════════════════════════════════');
+    console.error('❌ ERROR CAUGHT BY MIDDLEWARE');
+    console.error('═══════════════════════════════════════════════════════');
+    console.error('Path:', req.method, req.path);
+    console.error('Error:', err.message);
+    console.error('Stack:', err.stack);
+    console.error('Time:', new Date().toISOString());
+    console.error('═══════════════════════════════════════════════════════');
+
+    // Determinar el código de estado apropiado
+    const statusCode = err.statusCode || err.status || 500;
+
+    // Enviar respuesta de error sin tirar el servidor
+    res.status(statusCode).json({
+        error: process.env.NODE_ENV === 'production'
+            ? 'An error occurred. The issue has been logged.'
+            : err.message,
+        status: statusCode,
+        timestamp: new Date().toISOString(),
+        path: req.path
+    });
 });
 
 // Endpoint para guardar operaciones de acciones (con archivo)
@@ -406,8 +506,8 @@ app.post('/api/save-operaciones', upload.single('archivo'), async (req, res) => 
         // Parsear operaciones desde JSON string si viene en FormData
         let operaciones, nombreArchivo;
         if (req.body.operaciones) {
-            operaciones = typeof req.body.operaciones === 'string' 
-                ? JSON.parse(req.body.operaciones) 
+            operaciones = typeof req.body.operaciones === 'string'
+                ? JSON.parse(req.body.operaciones)
                 : req.body.operaciones;
             nombreArchivo = req.body.nombreArchivo;
         } else {
@@ -415,19 +515,24 @@ app.post('/api/save-operaciones', upload.single('archivo'), async (req, res) => 
             operaciones = req.body.operaciones;
             nombreArchivo = req.body.nombreArchivo;
         }
-        
+
         if (!Array.isArray(operaciones)) {
             return res.status(400).json({ error: 'Las operaciones deben ser un array' });
         }
-        
+
         // Obtener el buffer del archivo si está presente
         const archivoBuffer = req.file ? req.file.buffer : null;
-        
+
         const result = await saveOperacionesAcciones(operaciones, 'csv', nombreArchivo || null, archivoBuffer);
         res.json(result);
     } catch (error) {
-        console.error('Error al guardar operaciones:', error);
-        res.status(500).json({ error: error.message });
+        console.error('[ERROR] /api/save-operaciones - Module: Cartera Acciones');
+        console.error('[ERROR] Details:', error.message);
+        res.status(500).json({
+            error: 'Error saving operations in Cartera Acciones module',
+            module: 'cartera-acciones',
+            message: error.message
+        });
     }
 });
 
@@ -446,8 +551,13 @@ app.get('/api/balance-acciones', async (req, res) => {
             });
         }
     } catch (error) {
-        console.error('Error al obtener balance:', error);
-        res.status(500).json({ error: error.message });
+        console.error('[ERROR] /api/balance-acciones - Module: Cartera Acciones');
+        console.error('[ERROR] Details:', error.message);
+        res.status(500).json({
+            error: 'Error fetching balance from Cartera Acciones module',
+            module: 'cartera-acciones',
+            message: error.message
+        });
     }
 });
 
@@ -969,14 +1079,74 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
     console.log('NODE_ENV:', process.env.NODE_ENV);
     console.log('RAILWAY_PUBLIC_DOMAIN:', process.env.RAILWAY_PUBLIC_DOMAIN);
 });
 
 // Programar cron para las 20:17 (8:17 PM) todos los días
-cron.schedule('17 20 * * *', updateDataAndSave);
+// Envuelto en try-catch para evitar que un error tire el servidor
+cron.schedule('17 20 * * *', async () => {
+    try {
+        console.log('[CRON] Starting scheduled daily update at', new Date().toISOString());
+        await updateDataAndSave();
+        console.log('[CRON] Daily update completed successfully');
+    } catch (error) {
+        console.error('[CRON] ERROR: Daily update failed but server continues running');
+        console.error('[CRON] Error details:', error.message);
+        console.error('[CRON] Stack trace:', error.stack);
+        // No re-throw - permitir que el servidor continúe
+    }
+});
+
+// Global error handlers - Prevenir que errores no manejados tiren el servidor
+process.on('uncaughtException', (error) => {
+    console.error('═══════════════════════════════════════════════════════');
+    console.error('❌ UNCAUGHT EXCEPTION - Server will continue running');
+    console.error('═══════════════════════════════════════════════════════');
+    console.error('Error:', error.message);
+    console.error('Stack:', error.stack);
+    console.error('Time:', new Date().toISOString());
+    console.error('═══════════════════════════════════════════════════════');
+    // No hacer process.exit() - mantener el servidor corriendo
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('═══════════════════════════════════════════════════════');
+    console.error('❌ UNHANDLED REJECTION - Server will continue running');
+    console.error('═══════════════════════════════════════════════════════');
+    console.error('Reason:', reason);
+    console.error('Promise:', promise);
+    console.error('Time:', new Date().toISOString());
+    console.error('═══════════════════════════════════════════════════════');
+    // No hacer process.exit() - mantener el servidor corriendo
+});
+
+// Graceful shutdown handler
+const gracefulShutdown = (signal) => {
+    console.log(`\n${signal} received. Starting graceful shutdown...`);
+
+    server.close(() => {
+        console.log('HTTP server closed');
+
+        // Cerrar pool de conexiones de base de datos
+        pool.end(() => {
+            console.log('Database pool closed');
+            console.log('Graceful shutdown completed');
+            process.exit(0);
+        });
+    });
+
+    // Forzar cierre después de 30 segundos si no se completa
+    setTimeout(() => {
+        console.error('Forced shutdown after timeout');
+        process.exit(1);
+    }, 30000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Helper function
 const formatDates = (rows) => {
