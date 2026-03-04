@@ -38,8 +38,8 @@ class SimpleAYRScraper {
             const url = this.buildUrl(date);
             console.log(`[${new Date().toISOString()}] Fetching URL: ${url}`);
             
-            const response = await axios.post(url, {}, { 
-                headers: this.headers,
+            const response = await axios.post(url, '', {
+                headers: { ...this.headers, 'Content-Type': 'application/x-www-form-urlencoded' },
                 timeout: 15000 // 15 segundos timeout
             });
             
